@@ -5,33 +5,38 @@
  */
 package implementation;
 
-import interfaces.InstructionBase;
+import baseclasses.InstructionBase;
+import baseclasses.LatchBase;
 
 /**
- *
- * @author millerti
+ * Definitions of latch contents for pipeline registers.  Pipeline registers
+ * create instances of these for passing data between pipeline stages.
+ * 
+ * AllMyLatches is merely to collect all of these classes into one place.
+ * It is not necessary for you to do it this way.
+ * 
+ * You must fill in each latch type with the kind of data that passes between
+ * pipeline stages.
+ * 
+ * @author 
  */
 public class AllMyLatches {
-    public static class FetchToDecode {
-        InstructionBase ins;
+    public static class FetchToDecode extends LatchBase {
+        // LatchBase already includes a field for the instruction.
     }
     
-    public static class DecodeToExecute {
-        InstructionBase ins;
-        
+    public static class DecodeToExecute extends LatchBase {
+        // LatchBase already includes a field for the instruction.
         // What else do you need here?
     }
     
-    public static class ExecuteToMemory {
+    public static class ExecuteToMemory extends LatchBase {
+        // LatchBase already includes a field for the instruction.
         // What do you need here?
     }
 
-    public static class MemoryToWriteback {
+    public static class MemoryToWriteback extends LatchBase {
+        // LatchBase already includes a field for the instruction.
         // What do you need here?
-    }
-    
-    static Class[] getDeclaredClasses() {
-        Class self = AllMyLatches.class;
-        return self.getDeclaredClasses();
-    }
+    }    
 }

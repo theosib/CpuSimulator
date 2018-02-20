@@ -5,18 +5,23 @@
  */
 package implementation;
 
-import interfaces.EnumOpcode;
+import utilitytypes.EnumOpcode;
 
 /**
- *
- * @author millerti
+ * The code that implements the ALU has been separates out into a static
+ * method in its own class.  However, this is just a design choice, and you
+ * are not required to do this.
+ * 
+ * @author 
  */
 public class MyALU {
-    static int execute(EnumOpcode opcode, int input1, int input2) {
+    static int execute(EnumOpcode opcode, int input1, int input2, int oper0) {
         int result = 0;
         
-        
+        // Implement code here that performs appropriate computations for
+        // any instruction that requires an ALU operation.  See
+        // EnumOpcode.
         
         return result;
-    }
+    }    
 }

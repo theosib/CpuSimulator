@@ -9,7 +9,9 @@ import java.io.BufferedReader;
 import java.util.List;
 
 /**
- *
+ * Make an array of strings look like a BufferedReader.  Only readLine 
+ * actually works.
+ * 
  * @author millerti
  */
 public class StringArrayReader extends BufferedReader {

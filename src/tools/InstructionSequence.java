@@ -5,10 +5,12 @@
  */
 package tools;
 
-import interfaces.EnumComparison;
-import interfaces.EnumOpcode;
-import interfaces.InstructionBase;
-import interfaces.SourceOperand;
+import utilitytypes.EnumComparison;
+import utilitytypes.EnumOpcode;
+import baseclasses.InstructionBase;
+import utilitytypes.LabelTarget;
+import utilitytypes.Operand;
+import voidtypes.VoidInstruction;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,7 +28,57 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ * This class serves as both a parser for assembly language programs and
+ * a container for sequences of instructions that have been parsed.
+ * 
+ * Syntax:
+ * 
+ * - A semicolon (;) indicates that the remainder of a line is a comment.
+ * 
+ * - A label indicates that the following instruction is a branch target.
+ *   A label is any alpha-numeric name with a colon at the start or end. 
+ *   A label must not have any other symbols on the same line, but may have
+ *   a comment after it.
+ *   Examples:
+ *   :this_is_a_label
+ *   this_is_a_label_2:  ; This is a comment
+ * 
+ * - The first word of an instruction is the opcode.  See interfaces.EnumOpcode.
+ *   Example:
+ *   HALT       ; Stop the simulation
+ * 
+ * - The second word of an instruction is typically the destination register.
+ *   Registers are indicated by the letter 'R' prefixed to the register number.
+ *   The 'R' is not case sensitive.
+ *   Example:
+ *   R12        ; register 12
+ *   r7         ; register 7
+ * 
+ * - The second and third words of an instruction are typically sources.
+ *   They can be register sources (prefixed by 'R') or literals, which are
+ *   constant values provided by the instruction..
+ *   Example literals:
+ *   103        ; Decimal 103
+ *   D809       ; Decimal 809. Lower case 'd' and '#' can also prefix a decimal.
+ *   HAFFC      ; Hexadecimal 0xAFFC.  Can also use lower case 'h'
+ *   0xFACE     ; Hexadecimal 0xFACE
+ *   O7713      ; Octal 7713.  Lower case 'o' can also be used.
+ *   B10110     ; Binary 10110.  Can also use lower case 'b'.
+ *   
+ * - Some instructions, such as branches, can take a condition, which is a
+ *   predicate that decides if the instruction is to be executed or not.
+ *   Permitted conditions can be found in interfaces.EnumComparison.
+ *   The condition can appear as any word in the instruction.
+ * 
+ * - Some instructions, such as branches, can take a label target.  The
+ *   label is any alphanumeric word that is not recognized as a register,
+ *   numerical literal, or condition.
+ *   Example:
+ *   CMP R7 R1 R2       ; Compare R1 and R2, put condition flags into R7
+ *   BRA GT R7 my_label ; If R7 indicates greater-than, branch to label.
+ * 
+ * - Operands are delimited by whitespace.  Comma (,) is also permitted.
+ * 
  * @author millerti
  */
 public class InstructionSequence<T extends InstructionBase> {
@@ -80,14 +132,22 @@ public class InstructionSequence<T extends InstructionBase> {
     
     private void matchLabels() throws SyntaxError {
         for (InstructionBase ins : instructions) {
-            if (ins.label_name == null) continue;
-            Integer addr = labels.get(ins.label_name);
+            // If no label target, skip to next instruction
+            LabelTarget target = ins.getLabelTarget();
+            if (target.isNull()) continue;
+            
+            // Look up label name in mapping from label names to program
+            // addresses.
+            Integer addr = labels.get(target.getName());
             if (addr == null) {
-                throw new SyntaxError(ins.instruction_string, 
-                    "Unknown label or keyword \"" + ins.label_name + "\".",
-                    ins.line_num);        
+                // Error if the label was not defined anywhere.
+                throw new SyntaxError(ins.getInstructionString(), 
+                    "Unknown label or keyword \"" + target.getName() + "\".",
+                    ins.getLineNum());        
             }
-            ins.label_addr = addr;
+            
+            // Provide looked-up address.
+            target.setAddress(addr);
         }
     }
     
@@ -95,17 +155,17 @@ public class InstructionSequence<T extends InstructionBase> {
         int reg_num = Integer.parseInt(field.substring(1));
         switch (operand_num) {
             case 0:
-                ins.dst_regnum = reg_num;
+                ins.setOper0(Operand.newRegister(reg_num));
                 break;
             case 1:
-                ins.src1 = SourceOperand.newRegisterSource(reg_num);
+                ins.setSrc1(Operand.newRegister(reg_num));
                 break;
             case 2:
-                ins.src2 = SourceOperand.newRegisterSource(reg_num);
+                ins.setSrc2(Operand.newRegister(reg_num));
                 break;
             default:
-                throw new SyntaxError(ins.instruction_string, 
-                    "Too many operands.",
+                throw new SyntaxError(ins.getInstructionString(), 
+                    "No more than three register or literal operands permitted.",
                     line_num);        
         }
     }
@@ -137,19 +197,19 @@ public class InstructionSequence<T extends InstructionBase> {
         }
         switch (operand_num) {
             case 0:
-                throw new SyntaxError(ins.instruction_string, 
+                throw new SyntaxError(ins.getInstructionString(), 
                     "First data operand must be a register.",
-                    ins.line_num);        
+                    ins.getLineNum());        
             case 1:
-                ins.src1 = SourceOperand.newLiteralSource(value);
+                ins.setSrc1(Operand.newLiteralSource(value));
                 break;
             case 2:
-                ins.src2 = SourceOperand.newLiteralSource(value);
+                ins.setSrc2(Operand.newLiteralSource(value));
                 break;
             default:
-                throw new SyntaxError(ins.instruction_string, 
-                    "Too many operands.",
-                    ins.line_num);        
+                throw new SyntaxError(ins.getInstructionString(), 
+                    "No more than three register or literal operands permitted.",
+                    ins.getLineNum());        
         }
     }
     
@@ -165,11 +225,15 @@ public class InstructionSequence<T extends InstructionBase> {
             line = line.substring(0, semicolon_ix).trim();
         }
         
+        // If the line is blank once comments are removed, skip to the next
+        // line
         if (line.length() == 0) {
             line_num++;
             return;
         }
         
+        // Look for a keyword that is preceeded or followed by a colon.
+        // If found, this line is marked with a label.
         int colon_ix = line.indexOf(':');
         if (colon_ix>=0) {
             String label = null;
@@ -202,57 +266,78 @@ public class InstructionSequence<T extends InstructionBase> {
             return;
         }
         
+        // Use a factory to make an instruction in case it is a subclass
+        // of InstructonBase.
         InstructionBase ins = T.newInstruction();
-        ins.instruction_string = original_line;
-        ins.pc_address = current_pc;
-        ins.line_num = line_num;
-        ins.preceding_label = preceding_label;
         
+        // Metadata about the instruction.
+        ins.setInstructionString(original_line);
+        ins.setPCAddress(current_pc);
+        ins.setLineNum(line_num);
+        ins.setPrecedingLabel(preceding_label);
+        
+        // Split the line into words, deliminted by whitespace, a comma, or
+        // a comma and whitespace.
         String[] fields = line.split("\\s*,\\s*|\\s+,?\\s*|\\s*,?\\s+");
-        ins.opcode = EnumOpcode.fromString(fields[0]);
-        if (ins.opcode == null) {
+        
+        // First word is the opcode.
+        EnumOpcode op = EnumOpcode.fromString(fields[0]);
+        if (op == null) {
             throw new SyntaxError(original_line,
                 "Unknown opcode \"" + fields[0] + "\"",
                 line_num);
         }
+        ins.setOpcode(op);
         
         int num_data_operands = 0;
-        int num_comparisons = 0;
-        int num_labels = 0;
         
+        // Loop over the remaining words, identifying registers, literals,
+        // conditions, and label targets.
         for (int i=1; i<fields.length; i++) {
             String field = fields[i];
             
             if (field.matches("[Rr]\\d+")) {
+                // Register is 'R' or 'r' prefixing a decimal number
                 setRegisterOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("0x[0-9A-Fa-f]+")) {
+                // Hexadecimal literal
                 setLiteralOperand(ins, num_data_operands, field.substring(1));
                 num_data_operands++;
             } else if (field.matches("[hH][0-9A-Fa-f]+")) {
+                // Hexadecimal literal
                 setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("[bBoOdD#]?[0-9]+")) {
+                // Decimal, octal, or binary literal
+                // (TODO:  Make sure octals don't use 8 and 9; make sure
+                // binary uses only 0 and 1.)
                 setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else {
                 EnumComparison cmp = EnumComparison.fromString(field);
                 if (cmp != null) {
-                    if (num_comparisons > 0) {
+                    // Word matches a condition
+                    if (ins.getComparison() != EnumComparison.NULL) {
                         throw new SyntaxError(original_line,
-                            "Too many comparison keywords.",
+                            "No more than one comparison keyword is allowed",
                             line_num);
                     }
-                    ins.comparison = cmp;
-                    num_comparisons++;
+                    ins.setComparison(cmp);
                 } else if (isValidLabelName(field)) {
-                    if (num_labels > 0) {
+                    // Word is a combination of characters permitted to be
+                    // in a label.
+                    if (!ins.getLabelTarget().isNull()) {
                         throw new SyntaxError(original_line,
-                            "Too many label names.",
+                            "No more than one target label allowed",
                             line_num);
                     }
-                    ins.label_name = field;
+                    
+                    // Using address -1 to indicate unknown or invalid
+                    // target address.
+                    ins.setLabelTarget(new LabelTarget(field, -1));
                 } else {
+                    // Unparsable word
                     throw new SyntaxError(original_line,
                         "Cannot parse instruction.",
                         line_num);
@@ -260,6 +345,7 @@ public class InstructionSequence<T extends InstructionBase> {
             }
         }
         
+        // Add to list
         instructions.add((T)ins);
         
         line_num++;
@@ -267,18 +353,45 @@ public class InstructionSequence<T extends InstructionBase> {
         preceding_label = null;
     }
     
+    /**
+     * Parse a whole program from a single string where lines are delimited
+     * by newline characters.
+     * 
+     * @param program
+     * @throws IOException
+     */
     public void loadFromString(String program) throws IOException {
         loadFile(new BufferedReader(new StringReader(program)));
     }
     
+    /**
+     * Parse a whole program from an array of Strings, where each array
+     * entry is a line of code.
+     * 
+     * @param program
+     * @throws IOException
+     */
     public void loadFromStrings(String[] program) throws IOException {
         loadFile(new StringArrayReader(program));
     }
 
+    /**
+     * Parse a whole program from a List of Strings, where each List element
+     * is a line of code.
+     * 
+     * @param program
+     * @throws IOException
+     */
     public void loadFromStrings(List<String> program) throws IOException {
         loadFile(new StringArrayReader(program));
     }
     
+    /**
+     * Parse a whole program from a BufferedReader input stream.
+     * 
+     * @param in
+     * @throws IOException
+     */
     public void loadFile(BufferedReader in) throws IOException {
         for (;;) {
             String line = in.readLine();
@@ -292,6 +405,7 @@ public class InstructionSequence<T extends InstructionBase> {
             }
         }
         in.close();
+        
         try {
             matchLabels();
         } catch (SyntaxError ex) {
@@ -301,30 +415,61 @@ public class InstructionSequence<T extends InstructionBase> {
         System.out.flush();
     }
     
+    /**
+     * Parse a whole program from the file indicated by a given File object.
+     * 
+     * @param f
+     * @throws IOException
+     */
     public void loadFile(File f) throws IOException {
         System.out.println("Loading file: " + f.getCanonicalPath());
         loadFile(new BufferedReader(new InputStreamReader(new FileInputStream(f))));
     }
     
+    /**
+     * Parse a whole program from the file indicated by the given filename.
+     * 
+     * @param fname
+     * @throws IOException
+     */
     public void loadFile(String fname) throws IOException {
         loadFile(new File(fname));
     }
     
-    
+    /**
+     * Print out the loaded program to a given PrintStream.
+     * 
+     * @param out
+     */
     public void printProgram(PrintStream out) {
         for (InstructionBase ins : instructions) {
-            if (ins.preceding_label != null) {
-                out.println(ins.preceding_label + ":");
+            String pl = ins.getPrecedingLabel();
+            if (pl != null) {
+                out.println(pl + ":");
             }
             out.println("    " + ins.toString());
         }
     }
     
+    /**
+     * Print out the loaded program to standard out.
+     */
     public void printProgram() {
         printProgram(System.out);
     }
     
-    public T getInstructionAt(int index) {
-        return (T)instructions.get(index).duplicate();
+    /**
+     * Fetch an instruction at the provided program address.
+     * @param pc_address
+     * @return
+     */
+    public InstructionBase getInstructionAt(int pc_address) {
+        // A clone of the instruction is provided so that the simulator
+        // may modify elements of the instruction as it passes through
+        // the pipeline without affecting the original parsed instruction.
+        if (pc_address<0 || pc_address>=instructions.size()) {
+            return VoidInstruction.getVoidInstruction();
+        }
+        return instructions.get(pc_address).duplicate();
     }
 }
