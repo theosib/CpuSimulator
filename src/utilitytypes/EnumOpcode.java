@@ -69,10 +69,25 @@ public enum EnumOpcode {
     static final EnumSet<EnumOpcode> oper0SourceSet = 
             EnumSet.of(BRA, OUT, STORE, JMP);
         
+    /**
+     * Does the given opcode produce a value that must be written back to the
+     * register file?
+     * 
+     * @param op
+     * @return
+     */
     public static boolean needsWriteback(EnumOpcode op) {
         return writebackSet.contains(op);
     }
 
+    /**
+     * Is the first operand actually a source for the given opcode? 
+     * (Instead of being the the destination as is the case for most
+     * instructions.)
+     * 
+     * @param op
+     * @return
+     */
     public static boolean oper0IsSource(EnumOpcode op) {
         return oper0SourceSet.contains(op);
     }
