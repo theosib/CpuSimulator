@@ -38,6 +38,7 @@ public class AllMyStages {
         @Override
         public String getStatus() {
             // Generate a string that helps you debug.
+            return null;
         }
 
         @Override
@@ -63,6 +64,7 @@ public class AllMyStages {
         public boolean stageWaitingOnResource() {
             // Hint:  You will need to implement this for when branches
             // are being resolved.
+            return false;
         }
         
         
@@ -91,6 +93,7 @@ public class AllMyStages {
         public boolean stageWaitingOnResource() {
             // Hint:  You will need to implement this to deal with 
             // dependencies.
+            return false;
         }
         
 

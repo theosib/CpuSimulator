@@ -74,7 +74,7 @@ public abstract class PipelineStageBase<IRT extends LatchBase, ORT extends Latch
         boolean busy = stageHasWorkToDo();
         boolean ncan = nextStageCanAcceptWork();
         
-        // Cannot accept work from preceding stage
+        // This stage (cannot) accept work from preceding stage
         boolean cannot_accept  = wait || (busy && !ncan);
         // Cannot produce work for the next stage
         boolean cannot_produce = wait;

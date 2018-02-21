@@ -5,6 +5,8 @@
  */
 package utilitytypes;
 
+import java.util.EnumSet;
+
 /**
  * Enum for all opcodes to be implemented by the CPU simulator.
  * 
@@ -59,4 +61,20 @@ public enum EnumOpcode {
         }
         return op;
     }
+    
+    static final EnumSet<EnumOpcode> writebackSet = 
+            EnumSet.of(ADD, SUB, AND, OR, 
+            SHL, ASR, LSR, XOR, CMP, ROL, ROR, MULS, MULU, DIVS, DIVU,
+            CALL, LOAD, MOVC);
+    static final EnumSet<EnumOpcode> oper0SourceSet = 
+            EnumSet.of(BRA, OUT, STORE, JMP);
+        
+    public static boolean needsWriteback(EnumOpcode op) {
+        return writebackSet.contains(op);
+    }
+
+    public static boolean oper0IsSource(EnumOpcode op) {
+        return oper0SourceSet.contains(op);
+    }
+
 }
