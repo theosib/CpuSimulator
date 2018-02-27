@@ -68,7 +68,9 @@ public enum EnumOpcode {
             CALL, LOAD, MOVC);
     static final EnumSet<EnumOpcode> oper0SourceSet = 
             EnumSet.of(BRA, OUT, STORE, JMP);
-        
+    static final EnumSet<EnumOpcode> branchSet = 
+            EnumSet.of(BRA, JMP, CALL);
+
     /**
      * Does the given opcode produce a value that must be written back to the
      * register file?
@@ -89,6 +91,15 @@ public enum EnumOpcode {
      * @return
      */
     public static boolean oper0IsSource(EnumOpcode op) {
+        return oper0SourceSet.contains(op);
+    }
+
+    /**
+     * Returns true if the instruction is a branch (BRA, JMP, CALL).
+     * @param op
+     * @return
+     */
+    public static boolean isBranch(EnumOpcode op) {
         return oper0SourceSet.contains(op);
     }
 
