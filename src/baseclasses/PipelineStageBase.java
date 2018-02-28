@@ -55,7 +55,7 @@ public abstract class PipelineStageBase<IRT extends LatchBase, ORT extends Latch
      * and therefore has work it must perform.
      */
     public boolean stageHasWorkToDo() {
-        return !input_reg.read().getInstruction().isNull();
+        return input_reg.read().getInstruction().isValid();
     }
     
     /**

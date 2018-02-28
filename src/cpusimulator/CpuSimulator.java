@@ -25,8 +25,8 @@ public class CpuSimulator {
         seq.loadFile("samples/sieve.asm");
         seq.printProgram();
         
-//        MyCpuCore core = new MyCpuCore();
-//        core.loadProgram(seq);
-//        core.runProgram();
+        MyCpuCore core = new MyCpuCore();
+        core.loadProgram(seq);
+        core.runProgram();
     }    
 }

@@ -79,11 +79,19 @@ public class InstructionBase {
     public void setLabelTarget(LabelTarget target) { label_target = target; }
     
     /**
-     * Check to see if this is a valid instruction
+     * Check to see if this is a NOT valid instruction
      * @return
      */
     public boolean isNull() { 
         return getOpcode() == EnumOpcode.NULL || pc_address < 0;
+    }
+    
+    /**
+     * Check to see if this IS a valid instruction
+     * @return
+     */
+    public boolean isValid() {
+        return !isNull();
     }
     
     

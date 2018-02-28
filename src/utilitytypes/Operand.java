@@ -64,6 +64,22 @@ public class Operand {
         return value;
     }
     
+    /**
+     * Automatically get value of this operand from register file if this
+     * operand is a register.  If this is not a register, nothing happens.
+     * 
+     * IMPORTANT:  This does not handle stall conditions (where 
+     * GlobalData.register_invalid[register_num] is true).  You must take
+     * care of that properly in Decode.compute(input, output) method and return
+     * the stall condition in Decode.stageWaitingOnResource()/
+     * @param regfile Register file represented as int array.
+     */
+    public void lookUpFromRegisterFile(int[] regfile) {
+        if (isRegister()) {
+            setValue(regfile[getRegisterNumber()]);
+        }
+    }
+    
     public void setValue(int v) {
         value = v;
         valid_value = true;

@@ -101,6 +101,26 @@ public class AllMyStages {
         public void compute(FetchToDecode input, DecodeToExecute output) {
             InstructionBase ins = input.getInstruction();
             
+            // You're going to want to do something like this:
+            
+            // VVVVV LOOK AT THIS VVVVV
+            ins = ins.duplicate();
+            // ^^^^^ LOOK AT THIS ^^^^^
+            
+            // The above will allow you to do things like look up register 
+            // values for operands in the instruction and set them but avoid 
+            // altering the input latch if you're in a stall condition.
+            // The point is that every time you enter this method, you want
+            // the instruction and other contents of the input latch to be
+            // in their original state, unaffected by whatever you did 
+            // in this method when there was a stall condition.
+            // By cloning the instruction, you can alter it however you
+            // want, and if this stage is stalled, the duplicate gets thrown
+            // away without affecting the original.  This helps with 
+            // idempotency.
+            
+            
+            
             // These null instruction checks are mostly just to speed up
             // the simulation.  The Void types were created so that null
             // checks can be almost completely avoided.

@@ -52,13 +52,23 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
         // called every cycle regardless of stall condition.  This is necessary
         // so that stages that are stalled can detect when they are no longer
         // stalled.
+        //
+        // IMPORTANT:  This should compute the stall condition so that 
+        // my_pipeline_stage.stageWaitingOnResource() returns true on
+        // a stall condition.
+        
         for (PipelineStageBase stage : stages) {
             stage.compute();
         }
         
         // Next propagate any stall condition. For now, it is sufficient
         // to run backward down the pipeline.  For more complex designs, 
-        // we'll have to do something different.
+        // we'll have to do something different.  
+        // 
+        // IMPORTANT:  This uses the value that 
+        // my_pipeline_stage.stageWaitingOnResource() returns in order to
+        // properly propagate stall status between pipeline stages.
+        
         for (int i=stages.size()-1; i>=0; i--) {
             stages.get(i).propagateStall();
         }
