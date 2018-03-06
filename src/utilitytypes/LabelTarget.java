@@ -33,4 +33,14 @@ public class LabelTarget {
     public LabelTarget duplicate() {
         return new LabelTarget(label_name, label_address);
     }
+    
+    
+    @Override
+    public String toString() {
+        if (label_address < 0) {
+            return getName() + "->unknown";
+        } else {
+            return getName() + "->" + getAddress();
+        }
+    }
 }
