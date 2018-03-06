@@ -103,4 +103,17 @@ public class Operand {
     protected int value;
     protected boolean valid_value;
     protected Operand() {}
+    
+    @Override
+    public String toString() {
+        if (isRegister()) {
+            if (hasValue()) {
+                return "R" + getRegisterNumber() + "=" + getValue();
+            } else {
+                return "R" + getRegisterNumber() + "=UNKNOWN";
+            }
+        } else{
+            return "#" + getValue();
+        }
+    }
 }
