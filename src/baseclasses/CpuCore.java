@@ -79,13 +79,7 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
         for (PipelineStageBase stage : stages) {
             stage.advanceClock();
         }
-        
-        // Tell every pipeline register to atomicaly move its input to its 
-        // output.  Under stall conditions, this may have no effect.
-        for (PipelineRegister reg : registers) {
-            reg.advanceClock();
-        }
-        
+
         if (CpuSimulator.printStagesEveryCycle) {
             for (PipelineStageBase stage : stages) {
                 Class cl = stage.getClass();
@@ -93,6 +87,12 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
                         stage.getStatus());
             }
             System.out.println();        
+        }        
+        
+        // Tell every pipeline register to atomicaly move its input to its 
+        // output.  Under stall conditions, this may have no effect.
+        for (PipelineRegister reg : registers) {
+            reg.advanceClock();
         }        
     }    
     
