@@ -108,28 +108,86 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
     }
     
     /**
-     * Override this in subclass to be able to access pipeline register 
-     * result value validity.
+     * If this method is ever to return true, you must override the method
+     * of the same name in your subclass of LatchBase.
+     * This method returns indication as to whether the value associated with
+     * the target register is valid.
+     * 
+     * Decode will use this to determine when it's possible to forward to
+     * itself.
      * 
      * @param index Pipeline register number
      * @return Validity of result in pipeline register (slave latch)
      */
     public boolean isForwardingResultValid(int index) {
-        return false;
+        return registers.get(index).isForwardingResultValid();
     }    
     
+    /**
+     * If this method is ever to return true, you must override the method
+     * of the same name in your subclass of LatchBase.
+     * This method returns indication as to whether the value associated with
+     * the target register will be valid in the next pipeline register on
+     * the next cycle.
+     * 
+     * Decode will use this to determine when valid result is not available
+     * NOW but will be available (to Execute) on the next cycle.  Decode
+     * can pass information to Execute, specifying which pipeline register
+     * it should forward from for each of its inputs.
+     * 
+     * @param index Pipeline register number
+     * @return Validity of result in pipeline register (slave latch)
+     */
+    public boolean isForwardingResultValidNextCycle(int index) {
+        return registers.get(index).isForwardingResultValidNextCycle();
+    }
     
     /**
-     * Override this in subclass to be able to access pipeline register 
-     * result values.
+     * If this method is ever to return a value, you must override the
+     * method of the same name in your subclass of LatchBase.
      * 
      * @param index Pipeline register number
      * @return Value of result in pipeline register (slave latch)
      */
     public int getForwardingResultValue(int index) {
-        return 0;
+        return registers.get(index).getForwardingResultValue();
     }
     
+    /**
+     * Iterates over pipeline registers (except Fetch2Decode) and prints
+     * forwarding information in those registers.  The forwarding logic
+     * in your Decode stage will look similar to this.
+     */
+    public void dumpForwardingData() {
+        // Pipeline register 0 is FetchToDecode, which never can contain
+        // a forwardable result value. Therefore we skip it.
+        for (int i=1; i<registers.size(); i++) {
+            // Get a latch name just for pretty printing
+            String latchtypename = this.registers.get(i).getLatchTypeName();
+            while (latchtypename.length() < 18) {
+                latchtypename += " ";
+            }
+            
+            // In Decode, you will loop over pipeline registers and 
+            // look for forwarding opportunities.
+            int regnum = this.getForwardingDestinationRegisterNumber(i);
+            if (regnum < 0) {
+                System.out.println(latchtypename + " has no target register");
+            } else {
+                boolean valid = this.isForwardingResultValid(i);
+                if (valid) {
+                    int value = this.getForwardingResultValue(i);
+                    System.out.println(latchtypename + 
+                            " has target register R" + regnum + " with value " +
+                            value);
+                } else {
+                    System.out.println(latchtypename + 
+                            " has target register R" + regnum + 
+                            " with no value");
+                }
+            }
+        }
+    }
     
     /**
      * Reset all processor components to initial state.

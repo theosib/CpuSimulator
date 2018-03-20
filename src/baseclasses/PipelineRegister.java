@@ -105,27 +105,19 @@ public class PipelineRegister<LatchType extends LatchBase> {
     
     
     /**
-     * You probably don't need to override this, as long as oper0's target
-     * register number isn't changed.  Notice that this only returns a valid
-     * number if the instruction will do a writeback.  Only those instructions
-     * can have results we want to forward.
-     * 
      * @return destination register number
      */
     public int getForwardingDestinationRegisterNumber() {
-        InstructionBase ins = slave.getInstruction();
-        if (ins.getOpcode().needsWriteback()) {
-            return ins.getOper0().getRegisterNumber();
-        } else {
-            return -1;
-        }        
+        return slave.getForwardingDestinationRegisterNumber();
     }
     
     
     /**
-     * You must override this method if it ever needs to return true.
+     * If this method is ever to return true, you must override the method
+     * of the same name in your subclass of LatchBase.
+     * 
      * This method returns indication as to whether the value associated with
-     * the target register is valid:
+     * the target register is valid. 
      * - For DecodeToExecute, there is never a valid result.
      * - For ExecuteToMemory, all instructions that will do writeback will
      *   have a valid result *except LOAD*.
@@ -135,19 +127,40 @@ public class PipelineRegister<LatchType extends LatchBase> {
      * @return Validity of result.
      */
     public boolean isForwardingResultValid() {
-        return false;
+        return slave.isForwardingResultValid();
     }    
 
     
     /**
-     * You must override this method if it ever needs to return a value.
-     * If there is a target register in the instruction, return the computed
-     * result value.  Otherwise, it doesn't matter what you return.
+     * If this method is ever to return true, you must override the method
+     * of the same name in your subclass of LatchBase.
+     * 
+     * This method returns indication as to whether the value associated with
+     * the target register WILL BE VALID in the NEXT CYCLE in the
+     * NEXT PIPELINE REGISTER.
+     * - For DecodeToExecute, all instructions that will do a writeback
+     *   (except LOAD) will have a valid result in ExecuteToMemory on the
+     *   next cycle..
+     * - For ExecuteToMemory, all instructions that will do writeback will
+     *   have a valid result in MemoryToWriteback on the next cycle;
+     * - For MemoryToWriteback, results are written back to the register file,
+     *   so you can't perform any forwarding on the next cycle;
+     * 
+     * @return Validity of result.
+     */
+    public boolean isForwardingResultValidNextCycle() {
+        return slave.isForwardingResultValidNextCycle();
+    }
+    
+    
+    /**
+     * If this method is ever to return a value, you must override the
+     * method of the same name in your subclass of LatchBase.
      * 
      * @return Result value that will be written to target register.
      */
     public int getForwardingResultValue() {
-        return 0;
+        return slave.getForwardingResultValue();
     }
     
     
@@ -160,6 +173,10 @@ public class PipelineRegister<LatchType extends LatchBase> {
      */
     public Class<LatchType> getLatchType() {
         return latchclass;
+    }
+    
+    public String getLatchTypeName() {
+        return getLatchType().getSimpleName();
     }
     
     public PipelineRegister(Class latchclass) throws Exception {
