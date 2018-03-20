@@ -96,6 +96,41 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
         }        
     }    
     
+    
+    /**
+     * You probably don't need to override this method.  
+     * 
+     * @param index Pipeline register number
+     * @return Destination register in pipeline register (slave latch)
+     */
+    public int getForwardingDestinationRegisterNumber(int index) {
+        return registers.get(index).getForwardingDestinationRegisterNumber();
+    }
+    
+    /**
+     * Override this in subclass to be able to access pipeline register 
+     * result value validity.
+     * 
+     * @param index Pipeline register number
+     * @return Validity of result in pipeline register (slave latch)
+     */
+    public boolean isForwardingResultValid(int index) {
+        return false;
+    }    
+    
+    
+    /**
+     * Override this in subclass to be able to access pipeline register 
+     * result values.
+     * 
+     * @param index Pipeline register number
+     * @return Value of result in pipeline register (slave latch)
+     */
+    public int getForwardingResultValue(int index) {
+        return 0;
+    }
+    
+    
     /**
      * Reset all processor components to initial state.
      */

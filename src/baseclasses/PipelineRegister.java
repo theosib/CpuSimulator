@@ -103,6 +103,54 @@ public class PipelineRegister<LatchType extends LatchBase> {
         }
     }
     
+    
+    /**
+     * You probably don't need to override this, as long as oper0's target
+     * register number isn't changed.  Notice that this only returns a valid
+     * number if the instruction will do a writeback.  Only those instructions
+     * can have results we want to forward.
+     * 
+     * @return destination register number
+     */
+    public int getForwardingDestinationRegisterNumber() {
+        InstructionBase ins = slave.getInstruction();
+        if (ins.getOpcode().needsWriteback()) {
+            return ins.getOper0().getRegisterNumber();
+        } else {
+            return -1;
+        }        
+    }
+    
+    
+    /**
+     * You must override this method if it ever needs to return true.
+     * This method returns indication as to whether the value associated with
+     * the target register is valid:
+     * - For DecodeToExecute, there is never a valid result.
+     * - For ExecuteToMemory, all instructions that will do writeback will
+     *   have a valid result *except LOAD*.
+     * - For MemoryToWriteback, all instruction that will write back will have
+     *   a valid result.
+     * 
+     * @return Validity of result.
+     */
+    public boolean isForwardingResultValid() {
+        return false;
+    }    
+
+    
+    /**
+     * You must override this method if it ever needs to return a value.
+     * If there is a target register in the instruction, return the computed
+     * result value.  Otherwise, it doesn't matter what you return.
+     * 
+     * @return Result value that will be written to target register.
+     */
+    public int getForwardingResultValue() {
+        return 0;
+    }
+    
+    
     /**
      * Get the class of the latch type that is being handled by this register.
      * This can be useful for debugging purposes.  For instance, you can print
