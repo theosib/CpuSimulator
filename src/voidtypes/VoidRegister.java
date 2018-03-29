@@ -5,16 +5,21 @@
  */
 package voidtypes;
 
-import baseclasses.LatchBase;
+import baseclasses.Latch;
 import baseclasses.PipelineRegister;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import utilitytypes.IPipeReg;
+import utilitytypes.IPipeStage;
 
 /**
  *
  * @author millerti
  */
-public class VoidRegister extends PipelineRegister<VoidLatch> {
+public class VoidRegister implements IPipeReg {
     private static VoidRegister singleton = null;
     static {
         try {
@@ -29,9 +34,7 @@ public class VoidRegister extends PipelineRegister<VoidLatch> {
         return singleton;
     }
     
-    private VoidRegister() throws Exception {
-        super(VoidLatch.class);
-    }
+    private VoidRegister() {}
     
     @Override
     public boolean isMasterBubble() { return true; }
@@ -44,12 +47,12 @@ public class VoidRegister extends PipelineRegister<VoidLatch> {
     }
         
     @Override
-    public void setMasterBubble(boolean s) { }
+    public void writeBubble() { }
     @Override
     public void setSlaveStall(boolean s) { }
     
     @Override
-    public void write(VoidLatch output) { }
+    public void write(Latch output) { }
     
     @Override
     public void advanceClock() { }
@@ -60,5 +63,47 @@ public class VoidRegister extends PipelineRegister<VoidLatch> {
     @Override
     public VoidLatch newLatch() {
         return VoidLatch.getVoidLatch();
+    }
+
+    @Override
+    public void setPropertiesList(Set<String> pl) {}
+
+    private static final Set<String> proplist = Collections.unmodifiableSet(new HashSet<String>());
+    
+    @Override
+    public Set<String> getPropertiesList() { return proplist; }
+
+    @Override
+    public void setStageBefore(IPipeStage s) {}
+
+    @Override
+    public void setStageAfter(IPipeStage s) {}
+
+    @Override
+    public IPipeStage getStageBefore() { return null; }
+
+    @Override
+    public IPipeStage getStageAfter() { return null; }
+
+    @Override
+    public void setIndexInBefore(int ix) {}
+
+    @Override
+    public void setIndexInAfter(int ix) {}
+
+    @Override
+    public int getIndexInBefore() { return 0; }
+
+    @Override
+    public int getIndexInAfter() { return 0; }
+
+    @Override
+    public Latch invalidLatch() {
+        return VoidLatch.getVoidLatch();
+    }
+
+    @Override
+    public String getName() {
+        return "VoidRegister";
     }
 }

@@ -5,8 +5,13 @@
  */
 package implementation;
 
+import baseclasses.InstructionBase;
+import baseclasses.PropertiesContainer;
+import java.util.Map;
+import java.util.Set;
 import utilitytypes.IGlobals;
 import tools.InstructionSequence;
+import utilitytypes.IProperties;
 
 /**
  * As a design choice, some data elements that are accessed by multiple
@@ -16,19 +21,45 @@ import tools.InstructionSequence;
  * 
  * @author 
  */
-public class GlobalData implements IGlobals {
+public class GlobalData extends PropertiesContainer implements IGlobals {
     public InstructionSequence program;
-    public int program_counter = 0;
-    public int[] register_file = new int[32];
-    public boolean[] register_invalid = new boolean[32];
 
     @Override
     public void reset() {
-        program_counter = 0;
-        register_file = new int[32];
+        setup();
     }
     
-    
-    // Other global and shared variables here....
+    public static final int BRANCH_STATE_NULL = 0;
+    public static final int BRANCH_STATE_WAITING = 1;
+    public static final int BRANCH_STATE_TAKEN = 2;
+    public static final int BRANCH_STATE_NOT_TAKEN = 3;
 
+
+    @Override
+    public void setup() {
+        this.setProperty(PROGRAM_COUNTER, (int)0);
+        this.setProperty(REGISTER_FILE, new int[32]);
+        this.setProperty(REGISTER_INVALID, new boolean[32]);
+        this.setProperty(MAIN_MEMORY, new int[1024]);
+        this.setProperty("running", false);
+        this.setProperty("next_program_counter_nobranch", (int)0);
+        this.setProperty("next_program_counter_takenbranch", (int)0);
+        this.setProperty("current_branch_state", BRANCH_STATE_NULL);
+        this.setProperty("next_branch_state_fetch", BRANCH_STATE_NULL);
+        this.setProperty("branch_state_decode", BRANCH_STATE_NULL);
+    }
+
+    @Override
+    public InstructionBase getInstructionAt(int pc_address) {
+        return program.getInstructionAt(pc_address);
+    }
+
+    @Override
+    public void loadProgram(InstructionSequence seq) {
+        program = seq;
+    }
+    
+    public GlobalData() {
+        setup();
+    }
 }

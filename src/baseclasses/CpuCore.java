@@ -11,7 +11,12 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import utilitytypes.IPipeReg;
+import utilitytypes.IPipeStage;
+import utilitytypes.IProperties;
 
 /**
  * This is a base class that can be used to build a CPU simulator.  It contains
@@ -22,23 +27,105 @@ import java.util.List;
  * @author millerti
  * @param <GlobalsType>
  */
-public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<GlobalsType> {
+public abstract class CpuCore implements ICpuCore {
+    int cycle_number = 0;
+    
     // Container of data items global to the CPU and/or accessed by multiple
     // pipeline stages.
-    protected GlobalsType globals;
+    protected IGlobals globals;
     
     // List of pipeline stages to be automatically told to compute
-    protected List<PipelineStageBase> stages      = new ArrayList<>();
+    protected Map<String, IPipeStage> stages    = new HashMap<>();
     
     // List of pipeline registrs to be automatically clocked
-    protected List<PipelineRegister> registers    = new ArrayList<>();
+    protected Map<String, IPipeReg> registers   = new HashMap<>();
+    
+    @Override
+    public IPipeStage getPipeStage(String name) {
+        return stages.get(name);
+    }
+    
+    @Override
+    public IPipeReg getPipeReg(String name) {
+        return registers.get(name);
+    }
+    
+    public void addPipeStage(IPipeStage stage) {
+        stages.put(stage.getName(), stage);
+    }
+    
+    public void addPipeReg(IPipeReg reg) {
+        registers.put(reg.getName(), reg);
+    }
+    
+    public void connect(IPipeStage source_stage, IPipeReg target_reg) {
+        source_stage.addOutputRegister(target_reg);
+    }
+    
+    public void connect(IPipeReg source_reg, IPipeStage target_stage) {
+        target_stage.addInputRegister(source_reg);
+    }
+    
+    public void connect(String source_name, String target_name) {
+        if (stages.containsKey(source_name) && registers.containsKey(target_name)) {
+            connect(stages.get(source_name), registers.get(target_name));
+        } else if (registers.containsKey(source_name) && stages.containsKey(target_name)) {
+            connect(registers.get(source_name), stages.get(target_name));
+        } else {
+            throw new RuntimeException("Pipeline construction: Cannot connect " + 
+                    source_name + " to " + target_name);
+        }
+    }
+    
+    
+    protected List<IPipeStage> stage_topo_order;
+    public List<IPipeStage> getStageComputeOrder() { return stage_topo_order; }
+    
+    private void stageTopologicalOrder(IPipeStage stage) {
+        int this_order = stage.getTopoOrder();
+//        System.out.println("Stage " + stage.getName() + " has order " + this_order);
+        
+        int new_in_order = this_order - 1;
+        List<IPipeReg> inputs = stage.getInputRegisters();
+        if (inputs != null) {
+            for (IPipeReg in_reg : inputs) {
+                IPipeStage in_stage = in_reg.getStageBefore();
+                int old_in_order = in_stage.getTopoOrder();
+                if (old_in_order > new_in_order) {
+                    in_stage.setTopoOrder(new_in_order);
+                    stageTopologicalOrder(in_stage);
+                }
+            }
+        }
+        
+        int new_out_order = this_order + 1;
+        List<IPipeReg> outputs = stage.getOutputRegisters();
+        if (outputs != null) {
+            for (IPipeReg out_reg : outputs) {
+                IPipeStage out_stage = out_reg.getStageAfter();
+                int old_out_order = out_stage.getTopoOrder();
+                if (old_out_order < new_out_order) {
+                    out_stage.setTopoOrder(new_out_order);
+                    stageTopologicalOrder(out_stage);
+                }
+            }
+        }
+    }
+    
+    public void stageTopologicalSort(IPipeStage first_stage) {
+        first_stage.setTopoOrder(0);
+        stageTopologicalOrder(first_stage);
+        
+        stage_topo_order = new ArrayList(stages.values());
+        stage_topo_order.sort((IPipeStage a, IPipeStage b) -> b.getTopoOrder() - a.getTopoOrder());
+    }
         
     /**
      * Provides access to the object containing CPU global resources
      * @return The globals object
      */
     @Override
-    public GlobalsType getGlobalResources() {
+    public IGlobals getGlobalResources() {
         return globals;
     }
     
@@ -46,44 +133,23 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
      * Step the CPU by one clock cycle.
      */
     @Override
-    public void advanceClock() {        
-        // Tell all states to compute their outputs from their inputs.
-        // Note that this is why compute() must be idempotent.  This is
-        // called every cycle regardless of stall condition.  This is necessary
-        // so that stages that are stalled can detect when they are no longer
-        // stalled.
-        //
-        // IMPORTANT:  This should compute the stall condition so that 
-        // my_pipeline_stage.stageWaitingOnResource() returns true on
-        // a stall condition.
-        
-        for (PipelineStageBase stage : stages) {
-            stage.compute();
-        }
-        
-        // Next propagate any stall condition. For now, it is sufficient
-        // to run backward down the pipeline.  For more complex designs, 
-        // we'll have to do something different.  
-        // 
-        // IMPORTANT:  This uses the value that 
-        // my_pipeline_stage.stageWaitingOnResource() returns in order to
-        // properly propagate stall status between pipeline stages.
-        
-        for (int i=stages.size()-1; i>=0; i--) {
-            stages.get(i).propagateStall();
-        }
-        
-        // Tell every pipeline stage to update any internal or global state 
-        // that must change when advancing to the next clock cycle.
-        // NOTE: It is important to check for stall conditions.
-        for (PipelineStageBase stage : stages) {
-            stage.advanceClock();
-        }
+    public void advanceClock() {
+        cycle_number++;
 
+        // Tell all states to compute their outputs from their inputs, along
+        // with stall conditions (waiting on resource or output unable to 
+        // accept data).
+        
+        List<IPipeStage> stage_order = getStageComputeOrder();
+        for (IPipeStage stage : stage_order) {
+            stage.evaluate();
+        }
+        
         if (CpuSimulator.printStagesEveryCycle) {
-            for (PipelineStageBase stage : stages) {
-                Class cl = stage.getClass();
-                System.out.printf("%-12s: %-40s %s\n", cl.getSimpleName(), stage.getActivity(),
+            int n = stage_order.size();
+            for (int i=n-1; i>=0; i--) {
+                IPipeStage stage = stage_order.get(i);
+                System.out.printf("%-12s: %-40s %s\n", stage.getName(), stage.getActivity(),
                         stage.getStatus());
             }
             System.out.println();        
@@ -91,114 +157,33 @@ public abstract class CpuCore<GlobalsType extends IGlobals> implements ICpuCore<
         
         // Tell every pipeline register to atomicaly move its input to its 
         // output.  Under stall conditions, this may have no effect.
-        for (PipelineRegister reg : registers) {
+        for (IPipeReg reg : registers.values()) {
             reg.advanceClock();
-        }        
-    }    
-    
-    
-    /**
-     * You probably don't need to override this method.  
-     * 
-     * @param index Pipeline register number
-     * @return Destination register in pipeline register (slave latch)
-     */
-    public int getForwardingDestinationRegisterNumber(int index) {
-        return registers.get(index).getForwardingDestinationRegisterNumber();
-    }
-    
-    /**
-     * If this method is ever to return true, you must override the method
-     * of the same name in your subclass of LatchBase.
-     * This method returns indication as to whether the value associated with
-     * the target register is valid.
-     * 
-     * Decode will use this to determine when it's possible to forward to
-     * itself.
-     * 
-     * @param index Pipeline register number
-     * @return Validity of result in pipeline register (slave latch)
-     */
-    public boolean isForwardingResultValid(int index) {
-        return registers.get(index).isForwardingResultValid();
-    }    
-    
-    /**
-     * If this method is ever to return true, you must override the method
-     * of the same name in your subclass of LatchBase.
-     * This method returns indication as to whether the value associated with
-     * the target register will be valid in the next pipeline register on
-     * the next cycle.
-     * 
-     * Decode will use this to determine when valid result is not available
-     * NOW but will be available (to Execute) on the next cycle.  Decode
-     * can pass information to Execute, specifying which pipeline register
-     * it should forward from for each of its inputs.
-     * 
-     * @param index Pipeline register number
-     * @return Validity of result in pipeline register (slave latch)
-     */
-    public boolean isForwardingResultValidNextCycle(int index) {
-        return registers.get(index).isForwardingResultValidNextCycle();
-    }
-    
-    /**
-     * If this method is ever to return a value, you must override the
-     * method of the same name in your subclass of LatchBase.
-     * 
-     * @param index Pipeline register number
-     * @return Value of result in pipeline register (slave latch)
-     */
-    public int getForwardingResultValue(int index) {
-        return registers.get(index).getForwardingResultValue();
-    }
-    
-    /**
-     * Iterates over pipeline registers (except Fetch2Decode) and prints
-     * forwarding information in those registers.  The forwarding logic
-     * in your Decode stage will look similar to this.
-     */
-    public void dumpForwardingData() {
-        // Pipeline register 0 is FetchToDecode, which never can contain
-        // a forwardable result value. Therefore we skip it.
-        for (int i=1; i<registers.size(); i++) {
-            // Get a latch name just for pretty printing
-            String latchtypename = this.registers.get(i).getLatchTypeName();
-            while (latchtypename.length() < 18) {
-                latchtypename += " ";
-            }
-            
-            // In Decode, you will loop over pipeline registers and 
-            // look for forwarding opportunities.
-            int regnum = this.getForwardingDestinationRegisterNumber(i);
-            if (regnum < 0) {
-                System.out.println(latchtypename + " has no target register");
-            } else {
-                boolean valid = this.isForwardingResultValid(i);
-                if (valid) {
-                    int value = this.getForwardingResultValue(i);
-                    System.out.println(latchtypename + 
-                            " has target register R" + regnum + " with value " +
-                            value);
-                } else {
-                    System.out.println(latchtypename + 
-                            " has target register R" + regnum + 
-                            " with no value");
-                }
-            }
         }
+    }    
+
+    public int getResultRegister(String pipe_reg_name) { 
+        return registers.get(pipe_reg_name).getResultRegister();
     }
+    public IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum) {
+        return registers.get(pipe_reg_name).matchForwardingRegister(regnum);
+    }
+    public int getResultValue(String pipe_reg_name) { 
+        return registers.get(pipe_reg_name).getResultValue();
+    }
+    
     
     /**
      * Reset all processor components to initial state.
      */
     @Override
     public void reset() {
-        for (PipelineStageBase stage : stages) {
-            stage.reset();
+        cycle_number = 0;
+        for (Map.Entry<String,IPipeStage> ent : stages.entrySet()) {
+            ent.getValue().reset();
         }
-        for (PipelineRegister reg : registers) {
-            reg.reset();
+        for (Map.Entry<String,IPipeReg> ent : registers.entrySet()) {
+            ent.getValue().reset();
         }
         globals.reset();
     }

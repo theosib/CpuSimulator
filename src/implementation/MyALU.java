@@ -18,9 +18,63 @@ public class MyALU {
     static int execute(EnumOpcode opcode, int input1, int input2, int oper0) {
         int result = 0;
         
-        // Implement code here that performs appropriate computations for
-        // any instruction that requires an ALU operation.  See
-        // EnumOpcode.
+        switch (opcode) {
+            case ADD:
+                result = input1 + input2;
+                break;
+                
+            case SUB:
+                result = input1 - input2;
+                break;
+                
+            case AND:
+                result = input1 & input2;
+                break;
+                
+            case OR:
+                result = input1 | input2;
+                break;
+                
+            case SHL:
+                result = input1 << input2;
+                break;
+                
+            case ASR:
+                result = input1 >> input2;
+                break;
+                
+            case LSR:
+                result = input1 >>> input2;
+                break;
+                
+            case XOR:
+                result = input1 ^ input2;
+                break;
+                
+            case CMP:
+                // if a<b then a-b<0
+                // if a>b then a-b>0
+                // if a==b then a-b==0
+                result = input1 - input2;
+                break;
+                
+            case LOAD:
+            case STORE:
+                throw new RuntimeException("Load/Store got into Execute");
+                
+            case MOVC:
+                result = input1;
+                break;
+                
+            case OUT:
+                // It doesn't really matter which stage OUT is processed in.
+                // I did it in Execute.  Some people did it in Writeback.
+                // Since OUT is inspired by an I/O instruction in real 
+                // CPUs, possibly the most "purist" stage to execute it in
+                // would be Memory.
+                System.out.println("@@output: " + oper0);
+                break;
+        }
         
         return result;
     }    

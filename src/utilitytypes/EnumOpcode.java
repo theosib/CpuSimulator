@@ -70,6 +70,8 @@ public enum EnumOpcode {
             EnumSet.of(BRA, OUT, STORE, JMP);
     static final EnumSet<EnumOpcode> branchSet = 
             EnumSet.of(BRA, JMP, CALL);
+    static final EnumSet<EnumOpcode> memorySet = 
+            EnumSet.of(LOAD, STORE);
 
     /**
      * Does the given opcode produce a value that must be written back to the
@@ -114,5 +116,17 @@ public enum EnumOpcode {
     public boolean isBranch() {
         return branchSet.contains(this);
     }
+
+    public boolean isNull() {
+        return this == NULL;
+    }
     
+    
+    public static boolean accessesMemory(EnumOpcode op) {
+        return memorySet.contains(op);
+    }
+    
+    public boolean accessesMemory() {
+        return memorySet.contains(this);
+    }
 }

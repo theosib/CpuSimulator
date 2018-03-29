@@ -15,7 +15,9 @@ import tools.InstructionSequence;
  */
 public class CpuSimulator {
     
-    public static boolean printStagesEveryCycle = false;
+    public static boolean printStagesEveryCycle = true;
+    public static boolean printForwarding = true;
+    public static boolean printRegWrite = false;
 
     /**
      * @param args the command line arguments
@@ -24,6 +26,7 @@ public class CpuSimulator {
         InstructionSequence seq = new InstructionSequence();
         seq.loadFile("samples/sieve.asm");
         seq.printProgram();
+        System.out.println();
         
         MyCpuCore core = new MyCpuCore();
         core.loadProgram(seq);

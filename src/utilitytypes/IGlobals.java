@@ -5,12 +5,18 @@
  */
 package utilitytypes;
 
+import baseclasses.InstructionBase;
+import tools.InstructionSequence;
+
 /**
  * Interface for the class that contains any global data used by the 
  * CPU.
  * 
  * @author millerti
  */
-public interface IGlobals {
-    public void reset();
+public interface IGlobals extends IProperties {
+    public default void reset() {}
+    public void setup();
+    public InstructionBase getInstructionAt(int pc_address);
+    public void loadProgram(InstructionSequence seq);
 }

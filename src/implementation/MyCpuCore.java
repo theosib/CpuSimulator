@@ -9,6 +9,8 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import baseclasses.CpuCore;
 import tools.InstructionSequence;
+import utilitytypes.IPipeReg;
+import static utilitytypes.IProperties.*;
 import voidtypes.VoidRegister;
 
 /**
@@ -17,44 +19,70 @@ import voidtypes.VoidRegister;
  * 
  * @author 
  */
-public class MyCpuCore extends CpuCore<GlobalData> {
-    PipelineRegister FetchToDecode;
-    PipelineRegister DecodeToExecute;
-    PipelineRegister ExecuteToMemory;
-    PipelineRegister MemoryToWriteback;
-    
-    AllMyStages.Fetch       Fetch;
-    AllMyStages.Decode      Decode;
-    AllMyStages.Execute     Execute;
-    AllMyStages.Memory      Memory;
-    AllMyStages.Writeback   Writeback;
-    
-    private void setup() throws Exception {
-        // Instantiate pipeline registers
-        FetchToDecode     = new PipelineRegister(AllMyLatches.FetchToDecode.class);
-        DecodeToExecute   = new PipelineRegister(AllMyLatches.DecodeToExecute.class);
-        ExecuteToMemory   = new PipelineRegister(AllMyLatches.ExecuteToMemory.class);
-        MemoryToWriteback = new PipelineRegister(AllMyLatches.MemoryToWriteback.class);
+public class MyCpuCore extends CpuCore {
+    static final String[] producer_props = {RESULT_VALUE};
         
-        // Add the registers to the list or registers that get automatically clocked
-        registers.add(FetchToDecode);
-        registers.add(DecodeToExecute);
-        registers.add(ExecuteToMemory);
-        registers.add(MemoryToWriteback);
-        
-        // Instantiate pipeline stages
-        Fetch       = new AllMyStages.Fetch(this, VoidRegister.getVoidRegister(), FetchToDecode);
-        Decode      = new AllMyStages.Decode(this, FetchToDecode, DecodeToExecute);
-        Execute     = new AllMyStages.Execute(this, DecodeToExecute, ExecuteToMemory);
-        Memory      = new AllMyStages.Memory(this, ExecuteToMemory, MemoryToWriteback);
-        Writeback   = new AllMyStages.Writeback(this, MemoryToWriteback, VoidRegister.getVoidRegister());
+    /**
+     * Create a new pipeline register, with the given list of default
+     * property names, and add it to the map of pipeline registers.
+     * 
+     * @param name Name of new pipeline register
+     * @param props String array of property names
+     */
+    private void createPipeReg(String name, String[] props) {
+        IPipeReg pr = new PipelineRegister(this, name, props);
+        this.addPipeReg(pr);
+    }
 
-        // Add pipeline stages to list of pipeline stages that are automatically told to compute
-        stages.add(Fetch);
-        stages.add(Decode);
-        stages.add(Execute);
-        stages.add(Memory);
-        stages.add(Writeback);
+    /**
+     * Create a new pipeline register with no default property names and
+     * add it to the map of pipeline registers.
+     * 
+     * @param name Name of new pipeline register
+     */
+    private void createPipeReg(String name) {
+        IPipeReg pr = new PipelineRegister(this, name);
+        this.addPipeReg(pr);
+    }
+
+    /**
+     * Configure the pipeline and all of its connections
+     */
+    private void setup() {
+        // Create some pipeline registers.
+        createPipeReg("FetchToDecode");
+        createPipeReg("DecodeToExecute");
+        createPipeReg("DecodeToMemory");
+        createPipeReg("ExecuteToWriteback");
+        createPipeReg("MemoryToWriteback");
+                
+        // Instantiate pipeline stages
+        addPipeStage(new AllMyStages.Fetch(this));
+        addPipeStage(new AllMyStages.Decode(this));
+        addPipeStage(new AllMyStages.Execute(this));
+        addPipeStage(new AllMyStages.Memory(this));
+        addPipeStage(new AllMyStages.Writeback(this));
+        
+        // Connect pipeline elements by name.  Notice that 
+        // Decode has two outputs, anle to send to either Memory OR Execute 
+        // and that Writeback has two inputs, able to receive from both
+        // Execute and Memory.  
+        // Memory no longer connects to Execute.  It is now a fully 
+        // independent functional unit, parallel to Execute.
+        connect("Fetch", "FetchToDecode");
+        connect("FetchToDecode", "Decode");
+        connect("Decode", "DecodeToExecute");
+        connect("Decode", "DecodeToMemory");
+        connect("DecodeToExecute", "Execute");
+        connect("DecodeToMemory", "Memory");
+        connect("Execute", "ExecuteToWriteback");
+        connect("Memory", "MemoryToWriteback");
+        connect("ExecuteToWriteback", "Writeback");
+        connect("MemoryToWriteback", "Writeback");
+        
+        // Given the connections created above, compute the optimal
+        // order in which to evaluate each pipeline stage.
+        stageTopologicalSort(getPipeStage("Fetch"));
         
         globals = new GlobalData();
     }
@@ -64,11 +92,18 @@ public class MyCpuCore extends CpuCore<GlobalData> {
     }
     
     public void loadProgram(InstructionSequence program) {
-        globals.program = program;
+        globals.loadProgram(program);
     }
     
     public void runProgram() {
-        // Call advanceClock() in a loop until an error occurs or the HALT
-        // instruction is executed.
+        globals.setProperty("running", true);
+        while (globals.getPropertyBoolean("running")) {
+            advanceClock();
+        }
+    }
+
+    @Override
+    public void resetGlobals() {
+        globals = new GlobalData();
     }
 }
