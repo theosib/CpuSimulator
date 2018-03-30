@@ -124,16 +124,14 @@ public interface IPipeReg {
      * therefore must not be overwritten.  
      * @return
      */
-    public boolean isSlaveStalled();
+    //public boolean isSlaveStalled();
 
     /**
      * Redundant method that returns true when this pipeline register can
      * accept new work.
      * @return
      */
-    public default boolean canAcceptData() {
-        return !isSlaveStalled();
-    }
+    public boolean canAcceptWork();
     
     /**
      * Returns the contents of the slave latch, which is input to the 
@@ -142,6 +140,12 @@ public interface IPipeReg {
      * @return Input to next pipeline stage.
      */
     public Latch read();
+    
+    /**
+     * Indicate that the slave latch data has been used and consumed by the
+     * succeeding pipeline stage.
+     */
+    public void consumeSlave();
 
     /**
      * Returns the latch contents that will be returned by read() from THIS
@@ -153,7 +157,7 @@ public interface IPipeReg {
      * preceding pipeline stage has not yet been evaluated, it will be
      * evaluated on-demand before this method returns.
      * 
-     * @return Slave latch contents for THIS pipeline stage one cycle in the
+     * @return Slave latch contents for THIS pipeline register one cycle in the
      * future.
      */
     public default Latch readNextCycle() {

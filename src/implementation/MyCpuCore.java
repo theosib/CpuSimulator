@@ -10,6 +10,7 @@ import baseclasses.PipelineStageBase;
 import baseclasses.CpuCore;
 import tools.InstructionSequence;
 import utilitytypes.IPipeReg;
+import utilitytypes.IPipeStage;
 import static utilitytypes.IProperties.*;
 import voidtypes.VoidRegister;
 
@@ -22,47 +23,46 @@ import voidtypes.VoidRegister;
 public class MyCpuCore extends CpuCore {
     static final String[] producer_props = {RESULT_VALUE};
         
-    /**
-     * Create a new pipeline register, with the given list of default
-     * property names, and add it to the map of pipeline registers.
-     * 
-     * @param name Name of new pipeline register
-     * @param props String array of property names
-     */
-    private void createPipeReg(String name, String[] props) {
-        IPipeReg pr = new PipelineRegister(this, name, props);
-        this.addPipeReg(pr);
+    public void initProperties() {
+        properties = new GlobalData();
+    }
+    
+    public void loadProgram(InstructionSequence program) {
+        getGlobals().loadProgram(program);
+    }
+    
+    public void runProgram() {
+        properties.setProperty("running", true);
+        while (properties.getPropertyBoolean("running")) {
+            System.out.println("Cycle number: " + cycle_number);
+            advanceClock();
+        }
     }
 
-    /**
-     * Create a new pipeline register with no default property names and
-     * add it to the map of pipeline registers.
-     * 
-     * @param name Name of new pipeline register
-     */
-    private void createPipeReg(String name) {
-        IPipeReg pr = new PipelineRegister(this, name);
-        this.addPipeReg(pr);
-    }
-
-    /**
-     * Configure the pipeline and all of its connections
-     */
-    private void setup() {
-        // Create some pipeline registers.
+    @Override
+    public void createPipelineRegisters() {
         createPipeReg("FetchToDecode");
         createPipeReg("DecodeToExecute");
         createPipeReg("DecodeToMemory");
         createPipeReg("ExecuteToWriteback");
         createPipeReg("MemoryToWriteback");
-                
-        // Instantiate pipeline stages
+    }
+
+    @Override
+    public void createPipelineStages() {
         addPipeStage(new AllMyStages.Fetch(this));
         addPipeStage(new AllMyStages.Decode(this));
         addPipeStage(new AllMyStages.Execute(this));
         addPipeStage(new AllMyStages.Memory(this));
         addPipeStage(new AllMyStages.Writeback(this));
-        
+    }
+
+    @Override
+    public void createChildModules() {
+    }
+
+    @Override
+    public void createConnections() {
         // Connect pipeline elements by name.  Notice that 
         // Decode has two outputs, anle to send to either Memory OR Execute 
         // and that Writeback has two inputs, able to receive from both
@@ -79,31 +79,26 @@ public class MyCpuCore extends CpuCore {
         connect("Memory", "MemoryToWriteback");
         connect("ExecuteToWriteback", "Writeback");
         connect("MemoryToWriteback", "Writeback");
-        
-        // Given the connections created above, compute the optimal
-        // order in which to evaluate each pipeline stage.
-        stageTopologicalSort(getPipeStage("Fetch"));
-        
-        globals = new GlobalData();
-    }
-    
-    public MyCpuCore() throws Exception {
-        setup();
-    }
-    
-    public void loadProgram(InstructionSequence program) {
-        globals.loadProgram(program);
-    }
-    
-    public void runProgram() {
-        globals.setProperty("running", true);
-        while (globals.getPropertyBoolean("running")) {
-            advanceClock();
-        }
     }
 
     @Override
-    public void resetGlobals() {
-        globals = new GlobalData();
+    public void specifyForwardingSources() {
+        addForwardingSource("ExecuteToWriteback");
+        addForwardingSource("MemoryToWriteback");
+    }
+
+    @Override
+    public void specifyForwardingTargets() {
+        addForwardingTarget("DecodeToMemory");
+        addForwardingTarget("DecodeToWriteback");
+    }
+
+    @Override
+    public IPipeStage getFirstStage() {
+        return this.getPipeStage("Fetch");
+    }
+    
+    public MyCpuCore() {
+        initModule();
     }
 }

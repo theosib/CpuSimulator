@@ -5,6 +5,7 @@
  */
 package utilitytypes;
 
+import baseclasses.InstructionBase;
 import baseclasses.Latch;
 import baseclasses.PipelineRegister;
 import java.util.List;
@@ -90,28 +91,28 @@ public interface IPipeStage {
     /**
      * The evaluate method implements the "combinational logic" of the 
      * pipeline stage.  Its job is to:
-     * - Read input pipeline registers, using readInput(input_number).
-     * - Perform calculations on those inputs.
-     * - Determine when those calculations require external resources that are
-     *   not available, using setResourceStall() to indicate when the pipeline
-     *   stage is in a wait condition.
-     * - Allocate output latches for filling with output data, by calling 
-     *   newOutput(output_number)
-     * - Find out if any needed output pipeline registers are stalled, by 
-     *   calling outputCanAcceptWork(output_number) or 
-     *   theOutputLatch.calAcceptWork().
-     * - Indicate which inputs are being consumed in the process of computing
-     *   outputs that are NOT stalled, by calling claimInput(input_number) or
-     *   theInputLatch.claim();
-     * - Write results to output pipeline registers by calling
-     *   writeOutput(theOutputLatch, output_number) or theOutputLatch.write().
-     * 
-     * Other diagnostic oriented things this can do include:
-     * - Specify what the stage is working on by calling setActivity().
-     * - Provide status information by calling addStatusWord().
-     * 
-     * See javadocs on PipelineStageBase.compute methods, which are called
-     * by evaluate in the default implementation.
+ - Read input pipeline registers, using readInput(input_number).
+ - Perform calculations on those inputs.
+ - Determine when those calculations require external resources that are
+   not available, using setResourceStall() to indicate when the pipeline
+   stage is in a wait condition.
+ - Allocate output latches for filling with output data, by calling 
+   newOutput(output_number)
+ - Find out if any needed output pipeline registers are stalled, by 
+   calling outputCanAcceptWork(output_number) or 
+   theOutputLatch.calAcceptWork().
+ - Indicate which inputs are being consumed in the process of computing
+   outputs that are NOT stalled, by calling consumedInput(input_number) or
+   theInputLatch.claim();
+ - Write results to output pipeline registers by calling
+   writeOutput(theOutputLatch, output_number) or theOutputLatch.write().
+ 
+ Other diagnostic oriented things this can do include:
+ - Specify what the stage is working on by calling setActivity().
+ - Provide status information by calling addStatusWord().
+ 
+ See javadocs on PipelineStageBase.compute methods, which are called
+ by evaluate in the default implementation.
      */
     public void evaluate();
     
@@ -125,11 +126,12 @@ public interface IPipeStage {
     public int lookupInput(String name);
     
     /**
-     * Indicates that the specified input register's slave latch data has been
-     * consumed in the process of doing work.  
+     * This is used diagnostically by pipeline registers to inform a
+     * succeeding pipeline stage that an input has been consumed.
      * 
-     * Calling this method (or theInputLatch.claim()) is mandatory to indicate
-     * which inputs are being used.
+     * This is NOT to be called by implementations of pipeline stages.
+     * 
+     * To consume an input, you must call theInputLatch.claim().
      * 
      * Pipeline registers default to assuming that the pipeline stage
      * is NOT consuming its inputs.  Therefore if you do not claim an input,
@@ -138,13 +140,12 @@ public interface IPipeStage {
      * 
      * @param input_num Index of input being consumed.
      */
-    public void claimInput(int input_num);
+    public void consumedInput(int input_num);
     
     /**
      * Read the slave latch of the specified input register.  This does not
      * automatically indicate that the input is being used.  If an input
-     * is actually used, you must call claimInput(input_number) or
-     * theInputLatch.claim().
+     * is actually used, you must call theInputLatch.consume().
      * 
      * @param input_num
      * @return
@@ -213,15 +214,17 @@ public interface IPipeStage {
     public Latch invalidOutput(int out_num);
     
     /**
-     * Commit the specified latch to the specified output so that the latch
-     * contents can be transferred to the next pipeline stage.
+     * This method is used diagnostically by PipelineRegister to inform
+     * that an output has had its master latch written.  
      * 
-     * Alternatively, this can be performed by calling theOutputLatch.write().
+     * This method is NOT to be used by implementations of pipeline stages.
+     * 
+     * To submit an output latch for writing, call theOutputLatch.write().
      * 
      * @param out
      * @param out_num
      */
-    public void writeOutput(Latch out, int out_num);
+    public void outputWritten(Latch out, int out_num);
 
     /**
      * @return The whole list of output pipeline registers
@@ -259,4 +262,51 @@ public interface IPipeStage {
      * @return the name of this pipeline stage
      */
     public String getName();
+    
+    /**
+     * Fetches all valid source registers from the register file.
+     * 
+     * It is important to call this method on a duplicate of the
+     * original input latch.
+     * 
+     * This method should only be called from Decode or any stage that is
+     * supposed to be allowed access to the register file.
+     * 
+     * @param input source register slave latch
+     */
+    public void registerFileLookup(Latch input);
+    
+    /**
+     * At initialization time, a list of forwarding source is computed for
+     * the processor core.  This method searches the pipeline registers named 
+     * in that list for forwarding opportunities. 
+     * 
+     * Register values that are already valid are retrieved immediately and 
+     * setValue is called on matching operands.
+     * 
+     * Register values that will be available on the next cycle are posted
+     * for forwarding to the next stage by setting forward0, forward1,
+     * and/or forward2 properties on the latch.  These properties can be
+     * copied to the output latch so that the next stage can satisfy its
+     * dependencies on the next cycle by calling doPostedFowarding.
+     * 
+     * It is important to call this method on a duplicate of the
+     * original input latch.
+     * 
+     * @param input source register slave latch
+     */
+    public void forwardingSearch(Latch input);
+    
+    /**
+     * A pipeline stage that receives input with properties named
+     * forward0, forward1, and/or forward2 can call this method to
+     * retrieve operand values from the pipeline registers whose names
+     * are values of those properties.
+     * 
+     * It is important to call this method on a duplicate of the
+     * original input latch.
+     * 
+     * @param input source register slave latch with forwarding tags
+     */
+    public void doPostedForwarding(Latch input);
 }

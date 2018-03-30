@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package implementation;
+package tools;
 
 import utilitytypes.EnumOpcode;
 
@@ -15,7 +15,7 @@ import utilitytypes.EnumOpcode;
  * @author 
  */
 public class MyALU {
-    static int execute(EnumOpcode opcode, int input1, int input2, int oper0) {
+    static public int execute(EnumOpcode opcode, int input1, int input2, int oper0) {
         int result = 0;
         
         switch (opcode) {

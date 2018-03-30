@@ -5,14 +5,20 @@
  */
 package baseclasses;
 
+import cpusimulator.CpuSimulator;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import utilitytypes.EnumOpcode;
+import utilitytypes.ICpuCore;
+import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
+import static utilitytypes.IProperties.REGISTER_FILE;
+import static utilitytypes.IProperties.REGISTER_INVALID;
+import utilitytypes.Operand;
 import voidtypes.VoidLatch;
 
 /**
@@ -23,7 +29,7 @@ import voidtypes.VoidLatch;
  */
 public class PipelineStageBase implements IPipeStage {
     protected final String name;
-    protected CpuCore core;
+    protected ICpuCore core;
     int cycle_number = 0;
     Set<String> input_doing;
     Set<String> output_doing;
@@ -47,7 +53,6 @@ public class PipelineStageBase implements IPipeStage {
     public int getTopoOrder() { return topo_order; }
     
     protected List<IPipeReg> input_regs;
-    protected boolean[] inputs_claimed;
     @Override
     public List<IPipeReg> getInputRegisters() { return input_regs; }
     
@@ -63,23 +68,26 @@ public class PipelineStageBase implements IPipeStage {
     @Override
     public Latch readInput(int input_num) {
         if (input_regs == null) return VoidLatch.getVoidLatch();
-        return input_regs.get(input_num).read();
+        IPipeReg input = input_regs.get(input_num);
+        Latch slave = input.read();
+        String doing = slave.ins.toString();
+//        System.out.println("Stage " + getName() + " input " + input.getName() + 
+//                " read " + doing);
+        return slave;
     }
     
     @Override
-    public void claimInput(int input_num) {
-        if (inputs_claimed == null) return;
-        if (input_num < 0 || input_num >= inputs_claimed.length) return;
-        inputs_claimed[input_num] = true;
-        input_doing.add(input_regs.get(input_num).read().ins.toString());
-//        System.out.println("Stage " + getName() + " claimed input " + input_regs.get(input_num).getName() + ":");
-//        System.out.println(input_regs.get(input_num).read());
+    public void consumedInput(int input_num) {
+        IPipeReg input = input_regs.get(input_num);
+        String doing = input.read().ins.toString();
+//        System.out.println("Stage " + getName() + " input " + input.getName() + 
+//                " consumed " + doing);
+        input_doing.add(doing);
     }
     
     
     
     protected List<IPipeReg> output_regs;
-    protected boolean[] outputs_written;
     @Override
     public List<IPipeReg> getOutputRegisters() { return output_regs; }
     
@@ -95,7 +103,7 @@ public class PipelineStageBase implements IPipeStage {
     @Override
     public boolean outputCanAcceptWork(int out_num) {
         if (output_regs == null) return true;
-        return output_regs.get(out_num).canAcceptData();
+        return output_regs.get(out_num).canAcceptWork();
     }
 
     @Override
@@ -111,11 +119,9 @@ public class PipelineStageBase implements IPipeStage {
     }
     
     @Override
-    public void writeOutput(Latch out, int index) {
-        if (outputs_written == null || output_regs == null) return;
-        if (index < 0 || index >= outputs_written.length) return;
-        outputs_written[index] = true;
-        output_regs.get(index).write(out);
+    public void outputWritten(Latch out, int index) {
+//        System.out.println("Stage " + getName() + " output " + out.getName() + 
+//                " written with " + out.ins.toString());
         output_doing.add(out.ins.toString());
         if (out.hasResultValue()) {
             int reg = out.getResultRegNum();
@@ -166,45 +172,179 @@ public class PipelineStageBase implements IPipeStage {
         }
         return false;
     }
-        
-    protected void computeSlaveStall() {
-        if (input_regs == null) return;
-        
-        boolean wait = stageWaitingOnResource();
-        if (wait) {
-            for (IPipeReg in : input_regs) {
-                in.setSlaveStall(true);
-            }
-            return;
-        }
-        
-        for (int i=0; i<input_regs.size(); i++) {
-            boolean claimed = inputs_claimed[i];
-            IPipeReg in = input_regs.get(i);
-            boolean is_work = in.read().getInstruction().isValid();
-            boolean stall = !claimed && is_work;
-//            System.out.println("Stage " + getName() + " claimed=" + claimed + " is_work=" + is_work +
-//                    " stall=" + stall + " for input " + in.getName());
-            in.setSlaveStall(stall);
-        }
-    }
+    
     
     protected void sendBubbles() {
         if (output_regs == null) return;
         
         boolean wait = stageWaitingOnResource();
         if (wait) {
+//            System.out.println("Bubbling all outputs of " + getName());
+            // Just in case an output has been written, must set all outputs
+            // to bubbles if there is a resource wait.
             for (IPipeReg out : output_regs) {
                 out.writeBubble();
             }
-            return;
+        }
+    }
+    
+    
+    public void registerFileLookup(Latch input) {
+        InstructionBase ins = input.getInstruction();
+        
+        // Get the register file and valid flags
+        IGlobals globals = core.getGlobals();
+        int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
+        boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
+
+        EnumOpcode opcode = ins.getOpcode();
+        boolean oper0src = opcode.oper0IsSource();
+        
+        Operand oper0 = ins.getOper0();
+        Operand src1  = ins.getSrc1();
+        Operand src2  = ins.getSrc2();
+        
+        if (oper0src) {
+            int oper0reg = oper0.getRegisterNumber();
+//            if (oper0reg >= 0) System.out.println("R" + oper0reg + " invalid=" + reginvalid[oper0reg]);
+            if (oper0reg >= 0 && !reginvalid[oper0reg]) {
+//                System.out.println("Fetching R" + oper0reg + "=" + 
+//                        regfile[oper0reg] + " for oper0");
+                oper0.setValue(regfile[oper0reg]);
+            }
         }
         
-        for (int i=0; i<output_regs.size(); i++) {
-            boolean written = outputs_written[i];
-            if (!written) {
-                IPipeReg out = output_regs.get(i);
-                out.writeBubble();
+        int src1reg = src1.getRegisterNumber();
+//        if (src1reg >= 0) System.out.println("R" + src1reg + " invalid=" + reginvalid[src1reg]);
+        if (src1reg >=0 && !reginvalid[src1reg]) {
+            src1.setValue(regfile[src1reg]);
+        }
+        
+        int src2reg = src2.getRegisterNumber();
+//        if (src2reg >= 0) System.out.println("R" + src2reg + " invalid=" + reginvalid[src2reg]);
+        if (src2reg >= 0 && !reginvalid[src2reg]) {
+            src2.setValue(regfile[src2reg]);
+        }
+    }
+    
+    
+    public void forwardingSearch(Latch input) {
+        input = input.duplicate();
+        InstructionBase ins = input.getInstruction();
+        
+        input.deleteProperty("forward0");
+        input.deleteProperty("forward1");
+        input.deleteProperty("forward2");
+        
+        Set<String> fwdSources = core.getForwardingSources();
+
+        EnumOpcode opcode = ins.getOpcode();
+        boolean oper0src = opcode.oper0IsSource();
+
+        Operand oper0 = ins.getOper0();
+        Operand src1  = ins.getSrc1();
+        Operand src2  = ins.getSrc2();
+        // Put operands into array because we will loop over them,
+        // searching the pipeline for forwarding opportunities.
+        Operand[] operArray = {oper0, src1, src2};
+
+        // For operands that are not registers, getRegisterNumber() will
+        // return -1.  We will use that to determine whether or not to
+        // look for a given register in the pipeline.
+        int[] srcRegs = new int[3];
+        // Only want to forward to oper0 if it's a source.
+        srcRegs[0] = oper0src ? oper0.getRegisterNumber() : -1;
+        srcRegs[1] = src1.getRegisterNumber();
+        srcRegs[2] = src2.getRegisterNumber();
+
+        for (int sn=0; sn<3; sn++) {
+            int srcRegNum = srcRegs[sn];
+            // Skip any operands that are not register sources
+            if (srcRegNum < 0) continue;
+            // Skip any operands that already have values
+            if (operArray[sn].hasValue()) continue;
+            
+            String srcFoundIn = null;
+            boolean next_cycle = false;
+
+            prn_loop:
+            for (String fwd_pipe_reg_name : fwdSources) {
+                IPipeReg.EnumForwardingStatus fwd_stat = core.matchForwardingRegister(fwd_pipe_reg_name, srcRegNum);
+
+                switch (fwd_stat) {
+                    case NULL:
+                        break;
+                    case VALID_NOW:
+                        srcFoundIn = fwd_pipe_reg_name;
+                        break prn_loop;
+                    case VALID_NEXT_CYCLE:
+                        srcFoundIn = fwd_pipe_reg_name;
+                        next_cycle = true;
+                        break prn_loop;
+                }
+            }
+
+            if (srcFoundIn != null) {
+                if (!next_cycle) {
+                    // If the register number was found and there is a valid
+                    // result, go ahead and get the value.
+                    int value = core.getResultValue(srcFoundIn);
+                    operArray[sn].setValue(value);
+
+                    if (CpuSimulator.printForwarding) {
+                        System.out.printf("Forwarding R%d=%d from %s to Decode operand %d\n", srcRegNum,
+                                value, srcFoundIn, sn);
+                    }
+                } else {
+                    // Post forwarding for the next stage on the next cycle by
+                    // setting a property on the latch that specifies which
+                    // operand(s) is forwarded from what pipeline register.
+                    // For instance, setting the property "forward1" to the 
+                    // value "ExecuteToWriteback" will inform the next stage
+                    // to get a value for src1 from ExecuteToWriteback.
+                    String propname = "forward" + sn;
+                    input.setProperty(propname, srcFoundIn);
+                    
+//                    if (CpuSimulator.printForwarding) {
+//                        System.out.printf("Scheduling forward R%d from %s to operand %d next stage\n", srcRegNum,
+//                                srcFoundIn, sn);
+//                    }
+                }
+            }
+        }
+    }
+    
+    public void doPostedForwarding(Latch input) {
+        InstructionBase ins = input.getInstruction();
+        
+        if (input.hasProperty("forward0")) {
+            String pipe_reg_name = input.getPropertyString("forward0");
+            int oper0 = core.getResultValue(pipe_reg_name);
+            ins.getOper0().setValue(oper0);
+            if (CpuSimulator.printForwarding) {
+                System.out.printf("Forwarding R%d=%d from %s to oper0 of %s\n", 
+                        ins.getOper0().getRegisterNumber(), oper0,
+                        pipe_reg_name, getName());
+            }
+        }
+        if (input.hasProperty("forward1")) {
+            String pipe_reg_name = input.getPropertyString("forward1");
+            int source1 = core.getResultValue(pipe_reg_name);
+            ins.getSrc1().setValue(source1);
+            if (CpuSimulator.printForwarding) {
+                System.out.printf("Forwarding R%d=%d from %s to src1 of %s\n", 
+                        ins.getSrc1().getRegisterNumber(), source1,
+                        pipe_reg_name, getName());
+            }
+        }
+        if (input.hasProperty("forward2")) {
+            String pipe_reg_name = input.getPropertyString("forward2");
+            int source2 = core.getResultValue(pipe_reg_name);
+            ins.getSrc2().setValue(source2);
+            if (CpuSimulator.printForwarding) {
+                System.out.printf("Forwarding R%d=%d from %s to src2 of %s\n", 
+                        ins.getSrc2().getRegisterNumber(), source2,
+                        pipe_reg_name, getName());
             }
         }
     }
@@ -216,7 +356,7 @@ public class PipelineStageBase implements IPipeStage {
      */
     @Override
     public void evaluate() {
-        if (cycle_number == core.cycle_number) return;
+        if (cycle_number == core.getCycleNumber()) return;
 //        System.out.println("Running evaluate for " + getName());
 
         input_doing = new HashSet<>();
@@ -230,11 +370,9 @@ public class PipelineStageBase implements IPipeStage {
 
         if (input_regs != null) {
             num_inputs = input_regs.size();
-            inputs_claimed = new boolean[num_inputs];
         }
         if (output_regs != null) {
             num_outputs = output_regs.size();
-            outputs_written = new boolean[num_outputs];
         }
         
         // Allocate a new latch to hold the output of this pipeline stage,
@@ -268,15 +406,14 @@ public class PipelineStageBase implements IPipeStage {
                 currently_doing = output.getInstruction().toString();
             }
 
-            if (!stageWaitingOnResource() && output.canAcceptData()) {
-                input.claim();
+            if (!stageWaitingOnResource() && output.canAcceptWork()) {
+                input.consume();
                 output.write();
             }            
         } else {
             compute();
         }
         
-        computeSlaveStall();
         sendBubbles();
         
         if (currently_doing == null) {
@@ -289,7 +426,7 @@ public class PipelineStageBase implements IPipeStage {
             }
         }
         
-        cycle_number = core.cycle_number;
+        cycle_number = core.getCycleNumber();
     }
     
     /**
@@ -318,7 +455,7 @@ public class PipelineStageBase implements IPipeStage {
      * - check needed output registers for stall conditions 
      *   (theOutputLatch.canAcceptData()).
      * - identify resource wait stalls (setResourceStall)
-     * - claim/consume inputs that are actually used (theInputLatch.claim()).
+     * - consume/consume inputs that are actually used (theInputLatch.consume()).
      * - compute outputs
      * - send outputs to output registers (theOutputLatch.write()).
      * 
@@ -343,6 +480,9 @@ public class PipelineStageBase implements IPipeStage {
         cycle_number = 0;
         currently_doing = null;
         resource_wait = false;
+        input_doing = null;
+        output_doing = null;
+        status_words = null;
     }   
     
     @Override
@@ -361,13 +501,13 @@ public class PipelineStageBase implements IPipeStage {
         output_regs.add(output);
     }
     
-    public PipelineStageBase(CpuCore core, String name, IPipeReg input, IPipeReg output) {
+    public PipelineStageBase(ICpuCore core, String name, IPipeReg input, IPipeReg output) {
         this.core = core;
         this.name = name;
         addInputRegister(input);
         addOutputRegister(output);
     }
-    public PipelineStageBase(CpuCore core, String name) {
+    public PipelineStageBase(ICpuCore core, String name) {
         this.core = core;
         this.name = name;
     }

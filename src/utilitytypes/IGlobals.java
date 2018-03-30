@@ -15,7 +15,19 @@ import tools.InstructionSequence;
  * @author millerti
  */
 public interface IGlobals extends IProperties {
-    public default void reset() {}
+
+    /**
+     * Restore this properties container to initial conditions
+     */
+    public default void reset() {
+        if (numProperties() == 0) return;
+        clear();
+        setup();
+    }
+
+    /**
+     * 
+     */
     public void setup();
     public InstructionBase getInstructionAt(int pc_address);
     public void loadProgram(InstructionSequence seq);

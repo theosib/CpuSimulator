@@ -30,20 +30,11 @@ public class Latch extends PropertiesContainer {
     IPipeReg parent;
     
     /**
-     * @return Is the next pipeline stage unable to accept new work?
-     */
-    public boolean isSlaveStalled() {
-        return parent.isSlaveStalled();
-    }    
-
-    /**
-     * This merely returns the inverse of isSlaveStalled.  Both methods
-     * are kept for legacy reasons.
-     * 
      * @return Is the next pipeline stage able to accept new work?
      */
-    public boolean canAcceptData() {
-        return parent.canAcceptData();
+    public boolean canAcceptWork() {
+        if (invalid) return true;
+        return parent.canAcceptWork();
     }    
     
     /**
@@ -54,9 +45,11 @@ public class Latch extends PropertiesContainer {
      * to the slave latch, making the data available to the next stage.
      */
     public void write() {
-        int stage_out_index = parent.getIndexInBefore();
-        IPipeStage stage = parent.getStageBefore();
-        stage.writeOutput(this, stage_out_index);
+        if (invalid) return;
+        parent.write(this);
+//        int stage_out_index = parent.getIndexInBefore();
+//        IPipeStage stage = parent.getStageBefore();
+//        stage.outputWritten(this, stage_out_index);
     }
     
     /**
@@ -65,25 +58,26 @@ public class Latch extends PropertiesContainer {
      * dequeueing the pipeline register's slave latch, allowing the preceding
      * pipeline stage to pass more work through this pipeline register.
      * 
-     * The default state of all inputs is "unclaimed," which is interpreted
+     * The default state of all inputs is "unconsumed," which is interpreted
      * as a stall condition by the pipeline register and preceding pipeline
      * stage.  Therefore it is vital that all inputs consumed by a stage
-     * be properly claimed.
+     * be properly consumed.
      */
-    public void claim() {
-        if (this != parent.read()) {
-            throw new RuntimeException("Can only claim input value from slave latch");
+    public void consume() {
+        if (invalid) return;
+        
+        Latch ident = this;
+        while (ident.duplicate_of != null) {
+            ident = ident.duplicate_of;
         }
         
-        int stage_src_index = parent.getIndexInAfter();
-        IPipeStage stage = parent.getStageAfter();
-        stage.claimInput(stage_src_index);
+        if (ident != parent.read()) {
+            throw new RuntimeException("Can only consume input value from slave latch");
+        }
+        
+        parent.consumeSlave();
     }
     
-    /**
-     * An alias for the claim method.
-     */
-    public void consume() { claim(); }
     
     /**
      * Constructor for new latch.  Do not use this constructor.  Instead,
@@ -144,6 +138,7 @@ public class Latch extends PropertiesContainer {
      * @return destination register, if any; -1 otherwise
      */
     public int getResultRegNum() {
+        if (invalid) return -1;
         if (ins.getOpcode().needsWriteback()) {
             return ins.getOper0().getRegisterNumber();
         } else {
@@ -158,7 +153,7 @@ public class Latch extends PropertiesContainer {
      * @return
      */
     public boolean hasResultValue() {
-        if (getResultRegNum() < 0) return false;
+        if (invalid || getResultRegNum() < 0) return false;
         return hasProperty(RESULT_VALUE);
     }
     
@@ -167,6 +162,7 @@ public class Latch extends PropertiesContainer {
      * @return
      */
     public int getResultValue() {
+        if (invalid) return 0;
         return getPropertyInteger(RESULT_VALUE);
     }
     
@@ -176,6 +172,7 @@ public class Latch extends PropertiesContainer {
      * @param value Computed value to be written to an arch/phys register.
      */
     public void setResultValue(int value) {
+        if (invalid) return;
         setProperty(RESULT_VALUE, value);
     }
     
@@ -192,7 +189,26 @@ public class Latch extends PropertiesContainer {
      */
     public String getName() { return parent.getName(); }
     
-    public void copyPropertiesFrom(Latch source) {
-        this.copyPropertiesFrom(source, parent.getPropertiesList());
+    public void copyParentPropertiesFrom(Latch source) {
+        if (invalid) return;
+        copyPropertiesFrom(source, parent.getPropertiesList());
+    }
+    
+    public void copyAllPropertiesFrom(Latch source) {
+        if (invalid) return;
+        copyPropertiesFrom(source, null);
+    }
+    
+    private Latch duplicate_of = null;
+    
+    public Latch duplicate() {
+        if (invalid) return this;
+        
+        Latch n = new Latch(parent);
+        n.ins = ins.duplicate();
+        n.copyAllPropertiesFrom(this);
+        n.duplicate_of = this;
+        
+        return n;
     }
 }

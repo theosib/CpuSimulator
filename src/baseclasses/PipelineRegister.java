@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 
@@ -23,7 +24,7 @@ import utilitytypes.IPipeStage;
  * @author millerti
  */
 public class PipelineRegister implements IPipeReg {
-    protected final CpuCore core;
+    protected final IModule parent;
     int cycle_number_slave = 0;
     int cycle_number_master = 0;
     
@@ -80,12 +81,13 @@ public class PipelineRegister implements IPipeReg {
      */
     public void writeBubble() { 
         master = invalid; 
-        cycle_number_master = core.cycle_number;
+//        System.out.println("Register " + getName() + " master written with bubble");
+        cycle_number_master = parent.getCycleNumber();
     }
     public boolean isMasterBubble() { 
-        if (cycle_number_master != core.cycle_number) {
+        if (cycle_number_master != parent.getCycleNumber()) {
             getStageBefore().evaluate();
-            cycle_number_master = core.cycle_number;
+            cycle_number_master = parent.getCycleNumber();
         }
         return master.isNull(); 
     }
@@ -96,17 +98,38 @@ public class PipelineRegister implements IPipeReg {
      * (e.g. the stage is waiting on a resource) or caused indirectly by 
      * a later pipeline stage being stalled.
      */
+    @Override
     public void setSlaveStall(boolean s) { 
         slave_stalled = s; 
-        cycle_number_slave = core.cycle_number;
+        cycle_number_slave = parent.getCycleNumber();
     }
-    public boolean isSlaveStalled() {         
-        if (cycle_number_slave != core.cycle_number) {
-            getStageAfter().evaluate();
-            cycle_number_slave = core.cycle_number;
+    
+    @Override
+    public void consumeSlave() {
+        setSlaveStall(false);
+        
+        int stage_src_index = getIndexInAfter();
+        IPipeStage stage = getStageAfter();
+        stage.consumedInput(stage_src_index);
+    }    
+
+    private boolean isSlaveStalled() {   
+        if (cycle_number_slave != parent.getCycleNumber()) {
+            if (slave.isNull()) {
+                slave_stalled = false;
+            } else {
+                slave_stalled = true;
+                getStageAfter().evaluate();
+            }
+            cycle_number_slave = parent.getCycleNumber();
         }
         if (slave_stalled) getStageBefore().addStatusWord("OutputStall");
         return slave_stalled;
+    }
+    
+    @Override
+    public boolean canAcceptWork() {
+        return !isSlaveStalled();
     }
     
     /**
@@ -114,10 +137,12 @@ public class PipelineRegister implements IPipeReg {
      * that has this pipeline register as input.
      * @return input to succeeding pipeline stage
      */
+    @Override
     public Latch read() {
         return slave;
     }
     
+    @Override
     public Latch readNextCycle() {
         if (isMasterBubble()) return invalid;
         if (isSlaveStalled()) return slave;
@@ -130,9 +155,16 @@ public class PipelineRegister implements IPipeReg {
      * this pipeline register as output.
      * @param output from preceding pipeline stage.
      */
+    @Override
     public void write(Latch output) {
+//        System.out.println("Register " + getName() + " master written with " +
+//            output.ins);
         master = output;
-        cycle_number_master = core.cycle_number;
+        cycle_number_master = parent.getCycleNumber();
+        
+        int stage_dst_index = getIndexInBefore();
+        IPipeStage stage = getStageBefore();
+        stage.outputWritten(output, stage_dst_index);        
     }
     
     /**
@@ -140,7 +172,10 @@ public class PipelineRegister implements IPipeReg {
      * the contents of the master match are moved to the slave latch so
      * that the data can be read by the succeeding pipeline stage.
      */
+    @Override
     public void advanceClock() {
+//        System.out.println("Clocking " + getName() + " ss=" +
+//                isSlaveStalled() + " mb=" + isMasterBubble());
         if (isSlaveStalled()) {
             // The stage after this one cannot accept new work, so no data
             // can move.  We need to leave the slave latch untouched since
@@ -216,8 +251,8 @@ public class PipelineRegister implements IPipeReg {
      * @param name name of this pipeline register
      * @param proplist Set of property names
      */
-    public PipelineRegister(CpuCore core, String name, Set<String> proplist) {
-        this.core = core;
+    public PipelineRegister(IModule parent, String name, Set<String> proplist) {
+        this.parent = parent;
         this.name = name;
         setPropertiesList(proplist);
         invalid = new Latch(this);
@@ -231,8 +266,8 @@ public class PipelineRegister implements IPipeReg {
      * @param name name of this pipeline register
      * @param proplist array of property names
      */
-    public PipelineRegister(CpuCore core, String name, String[] proplist) {
-        this.core = core;
+    public PipelineRegister(IModule parent, String name, String[] proplist) {
+        this.parent = parent;
         this.name = name;
         setPropertiesList(new HashSet<String>(Arrays.asList(proplist)));
         invalid = new Latch(this);
@@ -248,8 +283,8 @@ public class PipelineRegister implements IPipeReg {
      * @param name name of this pipeline register
      * @param proplist array of property names
      */
-    public PipelineRegister(CpuCore core, String name) {
-        this.core = core;
+    public PipelineRegister(IModule parent, String name) {
+        this.parent = parent;
         this.name = name;
         invalid = new Latch(this);
         invalid.setInvalid();

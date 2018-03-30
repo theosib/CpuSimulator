@@ -5,6 +5,7 @@
  */
 package implementation;
 
+import tools.MyALU;
 import utilitytypes.EnumOpcode;
 import baseclasses.InstructionBase;
 import baseclasses.PipelineRegister;
@@ -13,9 +14,9 @@ import voidtypes.VoidLatch;
 import baseclasses.CpuCore;
 import baseclasses.Latch;
 import cpusimulator.CpuSimulator;
-import static utilitytypes.EnumOpcode.BRA;
-import static utilitytypes.EnumOpcode.JMP;
-import static utilitytypes.EnumOpcode.STORE;
+import static utilitytypes.EnumOpcode.*;
+import utilitytypes.ICpuCore;
+import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import static utilitytypes.IProperties.*;
 import utilitytypes.Operand;
@@ -38,7 +39,7 @@ import utilitytypes.Operand;
 public class AllMyStages {
     /*** Fetch Stage ***/
     static class Fetch extends PipelineStageBase {
-        public Fetch(CpuCore core) {
+        public Fetch(ICpuCore core) {
             super(core, "Fetch");
         }
         
@@ -62,7 +63,7 @@ public class AllMyStages {
         
         @Override
         public String getStatus() {
-            GlobalData globals = (GlobalData)core.getGlobalResources();
+            IGlobals globals = (GlobalData)core.getGlobals();
             if (globals.getPropertyInteger("current_branch_state") == GlobalData.BRANCH_STATE_WAITING) {
                 addStatusWord("ResolveWait");
             }
@@ -71,7 +72,7 @@ public class AllMyStages {
 
         @Override
         public void compute(Latch input, Latch output) {
-            GlobalData globals = (GlobalData)core.getGlobalResources();
+            IGlobals globals = (GlobalData)core.getGlobals();
             
             // Get the PC and fetch the instruction
             int pc = globals.getPropertyInteger(PROGRAM_COUNTER);
@@ -116,7 +117,7 @@ public class AllMyStages {
             // counter, nor will it commit globals.next_branch_state_fetch to 
             // globals.branch_state_fetch.
             
-            if (output.canAcceptData()) {
+            if (output.canAcceptWork()) {
                 output.setInstruction(ins);
                 
                 if (globals.getPropertyInteger("current_branch_state") == GlobalData.BRANCH_STATE_WAITING) {
@@ -177,7 +178,7 @@ public class AllMyStages {
     
     /*** Decode Stage ***/
     static class Decode extends PipelineStageBase {
-        public Decode(CpuCore core) {
+        public Decode(ICpuCore core) {
             super(core, "Decode");
         }
         
@@ -190,7 +191,7 @@ public class AllMyStages {
 
         @Override
         public String getStatus() {
-            GlobalData globals = (GlobalData)core.getGlobalResources();
+            IGlobals globals = (GlobalData)core.getGlobals();
             String s = super.getStatus();
             if (squashing_instruction) {
                 s = "Squashing";
@@ -199,22 +200,24 @@ public class AllMyStages {
         }
         
 
-        private static final String[] fwd_regs = {"ExecuteToWriteback", 
-            "MemoryToWriteback"};
+//        private static final String[] fwd_regs = {"ExecuteToWriteback", 
+//            "MemoryToWriteback"};
         
         @Override
         public void compute() {
             // Since this stage has multiple outputs, must read input(s) 
             // explicitly
-            Latch input = this.readInput(0);
+            Latch input = this.readInput(0).duplicate();
             InstructionBase ins = input.getInstruction();
 
             // Default to no squashing.
             squashing_instruction = false;
             
             if (ins.isNull()) return;
+            
+            setActivity(ins.toString());
 
-            GlobalData globals = (GlobalData)core.getGlobalResources();            
+            IGlobals globals = (GlobalData)core.getGlobals();
             if (globals.getPropertyInteger("branch_state_decode") == GlobalData.BRANCH_STATE_TAKEN) {
                 // Drop the fall-through instruction.
                 squashing_instruction = true;
@@ -222,81 +225,35 @@ public class AllMyStages {
                 globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
                 
                 // Squashing the fall-through instruction is "consuming" it, so we
-                // mustn't forget to claim it.
-                input.claim();
+                // mustn't forget to consume it.
+                input.consume();
                 return;
             }
             
-            ins = ins.duplicate();
-            
             
             EnumOpcode opcode = ins.getOpcode();
-            boolean oper0src = opcode.oper0IsSource();
-
-            // Get the register file and valid flags
-            int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
+            Operand oper0 = ins.getOper0();
             boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
             
-            Operand oper0 = ins.getOper0();
-            Operand src1  = ins.getSrc1();
-            Operand src2  = ins.getSrc2();
-            // Put operands into array because we will loop over them,
-            // searching the pipeline for forwarding opportunities.
-            Operand[] operArray = {oper0, src1, src2};
-            
-            // For operands that are not registers, getRegisterNumber() will
-            // return -1.  We will use that to determine whether or not to
-            // look for a given register in the pipeline.
-            int[] srcRegs = new int[3];
-            // Only want to forward to oper0 if it's a source.
-            srcRegs[0] = oper0src ? oper0.getRegisterNumber() : -1;
-            srcRegs[1] = src1.getRegisterNumber();
-            srcRegs[2] = src2.getRegisterNumber();
-            
-            String[] srcFoundIn = new String[3];
-
-            for (int sn=0; sn<3; sn++) {
-                int srcRegNum = srcRegs[sn];
-                // Skip any operands that are not register sources
-                if (srcRegNum < 0) continue;
-                
-                prn_loop:
-                for (int prn=0; prn<fwd_regs.length; prn++) {
-                    String fwd_pipe_reg_name = fwd_regs[prn];
-                    IPipeReg.EnumForwardingStatus fwd_stat = core.matchForwardingRegister(fwd_pipe_reg_name, srcRegNum);
-                    
-                    switch (fwd_stat) {
-                        case NULL:
-                            break;
-                        case VALID_NOW:
-                            srcFoundIn[sn] = fwd_pipe_reg_name;
-                            break prn_loop;
-                        case VALID_NEXT_CYCLE:
-                            srcFoundIn[sn] = fwd_pipe_reg_name + ":next";
-                            break prn_loop;
-                    }
-                }
-
-                if (srcFoundIn[sn] == null) {
-                    // If the register number was not found, then we can get it
-                    // from the register file,but only if the register is 
-                    // marked valid.
-                    if (!reginvalid[srcRegNum]) {
-                        operArray[sn].setValue(regfile[srcRegNum]);
-                    }
-                } else if (srcFoundIn[sn].indexOf(':') == -1) {
-                    // If the register number was found and there is a valid
-                    // result, go ahead and get the value.
-                    int value = core.getResultValue(srcFoundIn[sn]);
-                    operArray[sn].setValue(value);
-                    
-                    if (CpuSimulator.printForwarding) {
-                        System.out.printf("Forwarding R%d=%d from %s to Decode operand %d\n", srcRegNum,
-                                value, srcFoundIn[sn], sn);
-                    }
+            // This code is to prevent having more than one of the same regster
+            // as a destiation register in the pipeline at the same time.
+            if (opcode.needsWriteback()) {
+                int oper0reg = oper0.getRegisterNumber();
+                if (reginvalid[oper0reg]) {
+//                    System.out.println("Stall because dest R" + oper0reg + " is invalid");
+                    setResourceStall(true);
+                    return;
                 }
             }
-
+            
+            // See what operands can be fetched from the register file
+            registerFileLookup(input);
+            
+            // See what operands can be fetched by forwarding
+            forwardingSearch(input);
+            
+            Operand src1  = ins.getSrc1();
+            Operand src2  = ins.getSrc2();
             
             
             boolean take_branch = false;
@@ -308,6 +265,7 @@ public class AllMyStages {
                     if (!oper0.hasValue()) {
                         // If we do not already have a value for the branch
                         // condition register, must stall.
+//                        System.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
                         this.setResourceStall(true);
                         // Nothing else to do.  Bail out.
                         return;
@@ -349,6 +307,7 @@ public class AllMyStages {
                             // If branching to address in register, make sure
                             // operand is valid.
                             if (!src1.hasValue()) {
+//                                System.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
                                 this.setResourceStall(true);
                                 // Nothing else to do.  Bail out.
                                 return;
@@ -374,7 +333,7 @@ public class AllMyStages {
                     
                     // Having completed execution of the BRA instruction, we must
                     // explicitly indicate that it has been consumed.
-                    input.claim();
+                    input.consume();
                     // All done; return.
                     return;
                     
@@ -386,6 +345,7 @@ public class AllMyStages {
                         if (!oper0.hasValue()) {
                             // If branching to address in register, make sure
                             // operand is valid.
+//                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
                             this.setResourceStall(true);
                             // Nothing else to do.  Bail out.
                             return;
@@ -400,12 +360,12 @@ public class AllMyStages {
                     
                     // Having completed execution of the JMP instruction, we must
                     // explicitly indicate that it has been consumed.
-                    input.claim();
+                    input.consume();
                     return;
                     
                 case CALL:
                     // Not implemented yet
-                    input.claim();
+                    input.consume();
                     return;
             }
             
@@ -424,98 +384,75 @@ public class AllMyStages {
             // If the desired output is stalled, then just bail out.
             // No inputs have been claimed, so this will result in a
             // automatic pipeline stall.
-            if (!output.canAcceptData()) return;
+            if (!output.canAcceptWork()) return;
+            
+            
+            int[] srcRegs = new int[3];
+            // Only want to forward to oper0 if it's a source.
+            srcRegs[0] = opcode.oper0IsSource() ? oper0.getRegisterNumber() : -1;
+            srcRegs[1] = src1.getRegisterNumber();
+            srcRegs[2] = src2.getRegisterNumber();
+            Operand[] operArray = {oper0, src1, src2};
             
             // Loop over source operands, looking to see if any can be
             // forwarded to the next stage.
             for (int sn=0; sn<3; sn++) {
-                String forwardRegname = null;
-                
                 int srcRegNum = srcRegs[sn];
                 // Skip any operands that are not register sources
                 if (srcRegNum < 0) continue;
                 // Skip any that already have values
                 if (operArray[sn].hasValue()) continue;
                 
-                // When filling out the srcFoundIn array above,
-                // ":next" was appended to the name of any pipeline
-                // register that will contain the desired result on
-                // the next cycle.
-                int colon = srcFoundIn[sn].indexOf(':');
-                if (colon != -1) {
-                    // Execute or Memory will find the result in the named
-                    // pipeline register on the next cycle.  No adding 1
-                    // to the stage number like in the old architecture!
-                    // The forwarding source is specified by setting a property
-                    // on the latch being send to the next stage.
-                    forwardRegname = srcFoundIn[sn].substring(0, colon);
-                    String propname = "forward" + sn;
-                    output.setProperty(propname, forwardRegname);
-                } else {
-                    // On the other hand, if any source operand is not available
+                String propname = "forward" + sn;
+                if (!input.hasProperty(propname)) {
+                    // If any source operand is not available
                     // now or on the next cycle, then stall.
                     this.setResourceStall(true);
                     // Nothing else to do.  Bail out.
                     return;
                 }
             }
+                
             
-            // If we managed to find all source operands, finish putting data
-            // into the output latch and send it.
+            // If we managed to find all source operands, mark the destination
+            // register invalid then finish putting data into the output latch 
+            // and send it.
+            
+            // Mark the destination register invalid
+            if (opcode.needsWriteback()) {
+                int oper0reg = oper0.getRegisterNumber();
+                reginvalid[oper0reg] = true;
+            }            
+            
+            // Copy the forward# properties
+            output.copyAllPropertiesFrom(input);
+            // Copy the instruction
             output.setInstruction(ins);
+            // Send the latch data to the next stage
             output.write();
             
             // And don't forget to indicate that the input was consumed!
-            input.claim();
+            input.consume();
         }
     }
     
 
     /*** Execute Stage ***/
     static class Execute extends PipelineStageBase {
-        public Execute(CpuCore core) {
+        public Execute(ICpuCore core) {
             super(core, "Execute");
         }
 
         @Override
         public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            input = input.duplicate();
+            doPostedForwarding(input);
             InstructionBase ins = input.getInstruction();
-            if (ins.isNull()) return;
 
             int source1 = ins.getSrc1().getValue();
             int source2 = ins.getSrc2().getValue();
             int oper0 =   ins.getOper0().getValue();
-            
-            if (input.hasProperty("forward0")) {
-                String pipe_reg_name = input.getPropertyString("forward0");
-                oper0 = core.getResultValue(pipe_reg_name);
-                ins.getOper0().setValue(oper0);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Execute operand %d\n", 
-                            ins.getOper0().getRegisterNumber(),
-                            oper0, pipe_reg_name, 0);
-                }
-            }
-            if (input.hasProperty("forward1")) {
-                String pipe_reg_name = input.getPropertyString("forward1");
-                source1 = core.getResultValue(pipe_reg_name);
-                ins.getSrc1().setValue(source1);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Execute operand %d\n", 
-                            ins.getSrc1().getRegisterNumber(),
-                            source1, pipe_reg_name, 1);
-                }
-            }
-            if (input.hasProperty("forward2")) {
-                String pipe_reg_name = input.getPropertyString("forward2");
-                source2 = core.getResultValue(pipe_reg_name);
-                ins.getSrc2().setValue(source2);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Execute operand %d\n", 
-                            ins.getSrc2().getRegisterNumber(),
-                            source2, pipe_reg_name, 2);
-                }
-            }
 
             int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
                         
@@ -527,57 +464,28 @@ public class AllMyStages {
 
     /*** Memory Stage ***/
     static class Memory extends PipelineStageBase {
-        public Memory(CpuCore core) {
+        public Memory(ICpuCore core) {
             super(core, "Memory");
         }
 
         @Override
         public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            input = input.duplicate();
+            doPostedForwarding(input);
             InstructionBase ins = input.getInstruction();
-            if (ins.isNull()) return;
 
             int oper0   = ins.getOper0().getValue();
             int source1 = ins.getSrc1().getValue();
             int source2 = ins.getSrc2().getValue();
             
-            if (input.hasProperty("forward0")) {
-                String pipe_reg_name = input.getPropertyString("forward0");
-                oper0 = core.getResultValue(pipe_reg_name);
-                ins.getOper0().setValue(oper0);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Memory operand %d\n", 
-                            ins.getOper0().getRegisterNumber(),
-                            oper0, pipe_reg_name, 0);
-                }
-            }
-            if (input.hasProperty("forward1")) {
-                String pipe_reg_name = input.getPropertyString("forward1");
-                source1 = core.getResultValue(pipe_reg_name);
-                ins.getSrc1().setValue(source1);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Memory operand %d\n", 
-                            ins.getSrc1().getRegisterNumber(),
-                            source1, pipe_reg_name, 1);
-                }
-            }
-            if (input.hasProperty("forward2")) {
-                String pipe_reg_name = input.getPropertyString("forward2");
-                source2 = core.getResultValue(pipe_reg_name);
-                ins.getSrc2().setValue(source2);
-                if (CpuSimulator.printForwarding) {
-                    System.out.printf("Forwarding R%d=%d from %s to Memory operand %d\n", 
-                            ins.getSrc2().getRegisterNumber(),
-                            source2, pipe_reg_name, 2);
-                }
-            }
-
             // The Memory stage no longer follows Execute.  It is an independent
             // functional unit parallel to Execute.  Therefore we must perform
             // address calculation here.
             int addr = source1 + source2;
             
             int value = 0;
-            GlobalData globals = (GlobalData)core.getGlobalResources();
+            IGlobals globals = (GlobalData)core.getGlobals();
             int[] memory = globals.getPropertyIntArray(MAIN_MEMORY);
 
             switch (ins.getOpcode()) {
@@ -613,7 +521,7 @@ public class AllMyStages {
 
         @Override
         public void compute() {
-            GlobalData globals = (GlobalData)core.getGlobalResources();
+            IGlobals globals = (GlobalData)core.getGlobals();
             // Get register file and valid flags from globals
             int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
             boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
@@ -633,8 +541,7 @@ public class AllMyStages {
                     int value = input.getResultValue();
 
                     if (CpuSimulator.printRegWrite) {
-                        System.out.println("Storing " + value + " to R" + 
-                                regnum);
+                        System.out.println("Storing " + value + " to R" + regnum);
                     }
                     
                     addStatusWord("R" + regnum + "=" + value);
@@ -649,7 +556,7 @@ public class AllMyStages {
                 
                 // There are no outputs that could stall, so just consume
                 // all valid inputs.
-                input.claim();
+                input.consume();
             }
         }
     }

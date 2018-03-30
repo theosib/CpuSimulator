@@ -6,82 +6,15 @@
 package utilitytypes;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Basic interface implemented by every CPU core.
  * 
  * @author millerti
  */
-public interface ICpuCore {
-    public void advanceClock();
-    public void reset();
-    public void resetGlobals();
-    IGlobals getGlobalResources();
-    
-    /**
-     * Get pipeline stage by name.
-     * @param name
-     * @return pipeline stage
-     */
-    public IPipeStage getPipeStage(String name);
-
-    /**
-     * Get pipeline register by name.
-     * @param name
-     * @return pipeline register
-     */
-    public IPipeReg getPipeReg(String name);
-
-    /**
-     * Add a new pipeline stage to the set of pipeline stages.  The order
-     * in which addPipeStage is called does not affect the order in which
-     * they connect or are evaluated.  
-     * 
-     * The new pipeline stage must have been assigned a name.
-     * 
-     * @param stage New pipeline stage with name.
-     */
-    public void addPipeStage(IPipeStage stage);
-    
-    /**
-     * Add a new pipeline register to the set of pipeline registers.  The order
-     * in which addPipeStage is called does not affect the order in which
-     * they connect or are clocked.  
-     * 
-     * The new pipeline register must have been assigned a name.
-     * 
-     * @param reg New pipeline register with name.
-     */
-    public void addPipeReg(IPipeReg reg);
-    
-    /**
-     * Add an existing pipeline register as an output from an existing pipeline
-     * stage.  Pipeline stages can have multiple outputs, but a pipeline
-     * register may have a single source.
-     * 
-     * @param source_stage Pipe stage getting new output.
-     * @param target_reg Pipe register being assigned source.
-     */
-    public void connect(IPipeStage source_stage, IPipeReg target_reg);
-    
-    /**
-     * Add an existing pipeline register as an input to an existing pipeline
-     * stage.  Pipeline stages can have multiple inputs, but a pipeline 
-     * register may only have a single sink.
-     * 
-     * @param source_reg Pipe register being assigned sink.
-     * @param target_stage Pipe stage getting new input.
-     */
-    public void connect(IPipeReg source_reg, IPipeStage target_stage);
-    
-    /**
-     * Connect two pipeline elements by name.  One argument must be a
-     * pipeline register, and the other must be a pipeline stage.
-     * 
-     * @param source
-     * @param target
-     */
-    public void connect(String source, String target);
+public interface ICpuCore extends IModule {
+    public void advanceClock();    
 
     /**
      * Traverse the graph of pipeline elements and compute an optimal order
@@ -106,7 +39,7 @@ public interface ICpuCore {
      * @param pipe_reg_name Name of pipeline register
      * @return Destination arch/phys register number
      */
-    public default int getResultRegister(String pipe_reg_name) { return -1; }
+    public int getResultRegister(String pipe_reg_name);
 
     /**
      * Look up a pipeline register by name and return the result value
@@ -117,7 +50,7 @@ public interface ICpuCore {
      * @param pipe_reg_name Name of pipeline register
      * @return Result value of computation
      */
-    public default int getResultValue(String pipe_reg_name) { return 0; }
+    public int getResultValue(String pipe_reg_name);
 
     /**
      * Look up a pipeline register by name and determine if there is or will 
@@ -141,8 +74,20 @@ public interface ICpuCore {
      *               forwarding.
      * @return EnumForwardingStatus match indicator
      */
-    public default IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum) {
-        return IPipeReg.EnumForwardingStatus.NULL;
+    public IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum);
+    
+    
+    public Set<String> getForwardingSources();
+    public Set<String> getForwardingTargets();
+    
+    void computeFlattenedPipeStageMap();
+    void computeFlattenedPipeRegMap();
+    IPipeStage getFirstStage();
+    
+    default void initModule() {
+        IModule.super.initModule();
+        computeFlattenedPipeStageMap();
+        computeFlattenedPipeRegMap();
+        stageTopologicalSort(getFirstStage());
     }
-
 }

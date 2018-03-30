@@ -66,6 +66,7 @@ public class PropertiesContainer implements IProperties {
      */
     @Override
     public Map<String,Object> getProperties()  {
+        if (properties == null) properties = new HashMap<>();
         return properties;
     }
     
@@ -88,6 +89,12 @@ public class PropertiesContainer implements IProperties {
     public void setProperty(String name, Object val) {
         alloc();
         properties.put(name, val);
+    }
+    
+    @Override
+    public void deleteProperty(String name) {
+        if (properties == null) return;
+        properties.remove(name);
     }
     
     /**
@@ -252,5 +259,11 @@ public class PropertiesContainer implements IProperties {
     @Override
     public void copyPropertiesFrom(IProperties source) {
         copyPropertiesFrom(source, null);
+    }
+
+    @Override
+    public int numProperties() {
+        if (properties == null) return 0;
+        return properties.size();
     }
 }

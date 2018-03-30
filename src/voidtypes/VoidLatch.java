@@ -46,5 +46,5 @@ public class VoidLatch extends Latch {
     public boolean isSlaveStalled() { return false; }
     public boolean canAcceptData() { return true; }
     public void write() {}
-    public void claim() {}
+    public void consume() {}
 }

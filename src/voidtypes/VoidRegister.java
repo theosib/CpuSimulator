@@ -39,7 +39,7 @@ public class VoidRegister implements IPipeReg {
     @Override
     public boolean isMasterBubble() { return true; }
     @Override
-    public boolean isSlaveStalled() { return false; }
+    public boolean canAcceptWork() { return true; }
     
     @Override
     public VoidLatch read() {
@@ -105,5 +105,28 @@ public class VoidRegister implements IPipeReg {
     @Override
     public String getName() {
         return "VoidRegister";
+    }
+
+    @Override
+    public void consumeSlave() {}
+
+    @Override
+    public Latch readNextCycle() {
+        return VoidLatch.getVoidLatch();
+    }
+
+    @Override
+    public int getResultRegister() {
+        return -1;
+    }
+
+    @Override
+    public EnumForwardingStatus matchForwardingRegister(int regnum) {
+        return EnumForwardingStatus.NULL;
+    }
+
+    @Override
+    public int getResultValue() {
+        return 0;
     }
 }

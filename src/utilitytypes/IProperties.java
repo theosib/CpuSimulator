@@ -23,8 +23,10 @@ public interface IProperties {
     
     public Set<String> propertyNames();
     public Map<String,Object> getProperties();
+    public int numProperties();
     public boolean hasProperty(String name);
     public void setProperty(String name, Object val);
+    public void deleteProperty(String name);
     public Integer getPropertyInteger(String name);
     public int[] getPropertyIntArray(String name);
     public Boolean getPropertyBoolean(String name);

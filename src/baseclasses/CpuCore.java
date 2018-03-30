@@ -12,8 +12,11 @@ import baseclasses.PipelineStageBase;
 import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import utilitytypes.IProperties;
@@ -25,60 +28,15 @@ import utilitytypes.IProperties;
  * registers to transfer their inputs to their outputs.
  * 
  * @author millerti
- * @param <GlobalsType>
  */
-public abstract class CpuCore implements ICpuCore {
-    int cycle_number = 0;
-    
-    // Container of data items global to the CPU and/or accessed by multiple
-    // pipeline stages.
-    protected IGlobals globals;
-    
-    // List of pipeline stages to be automatically told to compute
-    protected Map<String, IPipeStage> stages    = new HashMap<>();
-    
-    // List of pipeline registrs to be automatically clocked
-    protected Map<String, IPipeReg> registers   = new HashMap<>();
+public abstract class CpuCore extends ModuleBase implements ICpuCore {
+    public int cycle_number = 0;
     
     @Override
-    public IPipeStage getPipeStage(String name) {
-        return stages.get(name);
-    }
-    
-    @Override
-    public IPipeReg getPipeReg(String name) {
-        return registers.get(name);
-    }
-    
-    public void addPipeStage(IPipeStage stage) {
-        stages.put(stage.getName(), stage);
-    }
-    
-    public void addPipeReg(IPipeReg reg) {
-        registers.put(reg.getName(), reg);
-    }
-    
-    public void connect(IPipeStage source_stage, IPipeReg target_reg) {
-        source_stage.addOutputRegister(target_reg);
-    }
-    
-    public void connect(IPipeReg source_reg, IPipeStage target_stage) {
-        target_stage.addInputRegister(source_reg);
-    }
-    
-    public void connect(String source_name, String target_name) {
-        if (stages.containsKey(source_name) && registers.containsKey(target_name)) {
-            connect(stages.get(source_name), registers.get(target_name));
-        } else if (registers.containsKey(source_name) && stages.containsKey(target_name)) {
-            connect(registers.get(source_name), stages.get(target_name));
-        } else {
-            throw new RuntimeException("Pipeline construction: Cannot connect " + 
-                    source_name + " to " + target_name);
-        }
-    }
-    
-    
+    public int getCycleNumber() { return cycle_number; }
+        
     protected List<IPipeStage> stage_topo_order;
+    @Override
     public List<IPipeStage> getStageComputeOrder() { return stage_topo_order; }
     
     private void stageTopologicalOrder(IPipeStage stage) {
@@ -112,6 +70,7 @@ public abstract class CpuCore implements ICpuCore {
         }
     }
     
+    @Override
     public void stageTopologicalSort(IPipeStage first_stage) {
         first_stage.setTopoOrder(0);
         stageTopologicalOrder(first_stage);
@@ -120,15 +79,6 @@ public abstract class CpuCore implements ICpuCore {
         stage_topo_order.sort((IPipeStage a, IPipeStage b) -> b.getTopoOrder() - a.getTopoOrder());
     }
         
-    /**
-     * Provides access to the object containing CPU global resources
-     * @return The globals object
-     */
-    @Override
-    public IGlobals getGlobalResources() {
-        return globals;
-    }
-    
     /**
      * Step the CPU by one clock cycle.
      */
@@ -162,30 +112,82 @@ public abstract class CpuCore implements ICpuCore {
         }
     }    
 
-    public int getResultRegister(String pipe_reg_name) { 
-        return registers.get(pipe_reg_name).getResultRegister();
-    }
-    public IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum) {
-        return registers.get(pipe_reg_name).matchForwardingRegister(regnum);
-    }
-    public int getResultValue(String pipe_reg_name) { 
-        return registers.get(pipe_reg_name).getResultValue();
-    }
+    Set<String> forwarding_sources = new HashSet<>();
+    Set<String> forwarding_targets = new HashSet<>();
     
-    
-    /**
-     * Reset all processor components to initial state.
-     */
     @Override
-    public void reset() {
-        cycle_number = 0;
-        for (Map.Entry<String,IPipeStage> ent : stages.entrySet()) {
-            ent.getValue().reset();
+    public void addForwardingSource(String name) {
+//        System.out.println("addForwardingSource");
+//        System.out.println(name);
+//        System.out.println(forwarding_sources);
+        forwarding_sources.add(name);
+    }
+
+    @Override
+    public void addForwardingTarget(String name) {
+        forwarding_targets.add(name);
+    }
+    
+    @Override
+    public Set<String> getForwardingSources() {
+        return forwarding_sources;
+    }
+    @Override
+    public Set<String> getForwardingTargets() {
+        return forwarding_targets;
+    }
+    
+    @Override
+    public int getResultRegister(String pipe_reg_name) {
+        IPipeReg reg = flattened_registers.get(pipe_reg_name);
+        if (reg == null) {
+            throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
         }
-        for (Map.Entry<String,IPipeReg> ent : registers.entrySet()) {
-            ent.getValue().reset();
+        return reg.getResultRegister();
+    }
+    @Override
+    public IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum) {
+        IPipeReg reg = flattened_registers.get(pipe_reg_name);
+        if (reg == null) {
+            throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
         }
-        globals.reset();
+        return reg.matchForwardingRegister(regnum);
+    }
+    @Override
+    public int getResultValue(String pipe_reg_name) { 
+        IPipeReg reg = flattened_registers.get(pipe_reg_name);
+        if (reg == null) {
+            throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
+        }
+        return reg.getResultValue();
+    }
+    
+
+
+    // List of pipeline stages to be automatically told to compute
+    protected Map<String, IPipeStage> flattened_stages;
+    
+    // List of pipeline registrs to be automatically clocked
+    protected Map<String, IPipeReg> flattened_registers;
+
+    @Override
+    public IPipeStage getPipeStage(String name) {
+        return flattened_stages.get(name);
+    }
+
+    @Override
+    public IPipeReg getPipeReg(String name) {
+        return flattened_registers.get(name);
+    }
+
+    @Override
+    public void computeFlattenedPipeStageMap() {
+        flattened_stages = getPipeStagesRecursive();
+    }
+
+    @Override
+    public void computeFlattenedPipeRegMap() {
+        flattened_registers = getPipeRegsRecursive();
     }
 }
 
