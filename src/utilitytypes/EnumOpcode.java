@@ -49,7 +49,8 @@ public enum EnumOpcode {
     MUL, MULU, DIV, MOD,
     BRA, JMP, CALL, 
     LOAD, STORE, MOVC, OUT,
-    HALT, NOP, INVALID, NULL;
+    HALT, NOP, INVALID, NULL,
+    FADD, FSUB, FMUL, FDIV, FOUT;
     
     public static EnumOpcode fromString(String name) {
         name = name.trim().toUpperCase();
