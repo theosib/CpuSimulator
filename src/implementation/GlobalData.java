@@ -17,8 +17,6 @@ import utilitytypes.IProperties;
  * As a design choice, some data elements that are accessed by multiple
  * pipeline stages are stored in a common object.
  * 
- * TODO:  Add to this any additional global or shared state that is missing.
- * 
  * @author 
  */
 public class GlobalData extends PropertiesContainer implements IGlobals {

@@ -18,7 +18,7 @@ import java.util.Map;
  * 
  * @author millerti
  */
-public interface IModule {
+public interface IModule extends IComponent {
     /**
      * @return Reference to the LOCAL PropertiesContainer for this module
      */
@@ -34,14 +34,7 @@ public interface IModule {
      * 
      * @return Reference to the IGlobals instance at the top of the hierarchy.
      */
-    default IGlobals getGlobals() {
-        IProperties props = getProperties();
-        if (props instanceof IGlobals) {
-            return (IGlobals)props;
-        } else {
-            return getParent().getGlobals();
-        }
-    }
+    IGlobals getGlobals();
 
     /**
      * Create the PropertiesContainer and pre-fill it with any properties
@@ -52,57 +45,8 @@ public interface IModule {
     /**
      * Reset properties to initial state
      */
-    default void resetProperties() {
-        IProperties props = getProperties();
-        if (props != null) props.clear();
-        initProperties();
-    }
-    
-    /**
-     * Reset to initial conditions
-     */
-    default void reset() {
-        resetProperties();
-        
-        Map<String,IPipeStage> stages = getLocalPipeStages();
-        for (IPipeStage s : stages.values()) {
-            s.reset();
-        }
-        
-        Map<String,IPipeReg> regs = getLocalPipeRegs();
-        for (IPipeReg r : regs.values()) {
-            r.reset();
-        }
-
-        Map<String,IFunctionalUnit> children = getLocalChildUnits();
-        for (IFunctionalUnit fu : children.values()) {
-            fu.reset();
-        }
-    }
-    
-    /**
-     * Set a reference to the next level up in the hierarchy.
-     * @param parent
-     */
-    void setParent(IModule parent);
-
-    /**
-     * @return Reference to parent in the hierarchy
-     */
-    IModule getParent();
-    
-    /**
-     * @return The top-level module, which should be an instance of ICpuCore
-     */
-    default ICpuCore getCore() {
-        if (this instanceof ICpuCore) return (ICpuCore)this;
-        return getParent().getCore();
-    }
-    
-    default int getCycleNumber() {
-        return getParent().getCycleNumber();
-    }
-    
+    default void resetProperties() {}
+            
     
     /**
      * Create all pipeline registers.  Convenience methods named createPipeReg
@@ -111,8 +55,8 @@ public interface IModule {
      * 
      * If this is for a sub-module, be sure to create clearly defined module
      * input and output pipeline registers.  Input register names are expected
-     * to start with "in:", and output register names are expected to start
-     * with "out:".
+     * to be "in" or start with "in:", and output register names are expected 
+     * to be "out" or start with "out:".
      */
     void createPipelineRegisters();
 
@@ -150,43 +94,24 @@ public interface IModule {
      * Use addForwardingTarget(pipereg_name) to specify all pipeline registers
      * whose successor pipeline stages may want to receive forwarding data.
      * 
+     * At the moment, this isn't actually used for anything.  Instead, 
+     * forwarding targets need to call doPostedForwarding and/or 
+     * forwardingSearch.
+     * 
      * By convention a pipeline latch that requests automatic forwarding will
      * contain one or more of the following properties:
      * forward0 -- hierarchical name of forwarding source register to get data from for oper0
      * forward1 -- hierarchical name of forwarding source register to get data from for src1
      * forward2 -- hierarchical name of forwarding source register to get data from for src2
      */
-    void specifyForwardingTargets();
+    default void specifyForwardingTargets() {}
     
     /**
-     * Construct and connect internal components
+     * Construct and connect internal components.
      */
-    default void initModule() {
-        initProperties();
-        createPipelineRegisters();
-        createPipelineStages();
-        createChildModules();
-        createConnections();
-        specifyForwardingSources();
-        specifyForwardingTargets();
-    }
+    void initModule();
     
-    /**
-     * @return Name of this module
-     */
-    String getLocalName();
     
-    /**
-     * @return Name of this module in hierarchy of modules
-     */
-    default String getHierarchicalName() {
-        IModule parent = getParent();
-        if (parent == null) {
-            return getLocalName();
-        } else {
-            return parent.getHierarchicalName() + '.' + getLocalName();
-        }
-    }
     
     /**
      * @return Map of all contained pipeline stages, not including those
@@ -194,36 +119,10 @@ public interface IModule {
      */
     public Map<String,IPipeStage> getLocalPipeStages();
     
-    public default Map<String,IPipeStage> getPipeStagesRecursive() {
-        Map<String,IFunctionalUnit> children = getLocalChildUnits();
-        if (children == null || children.size() == 0) {
-            return getLocalPipeStages();
-        }
-        
-        // New map to contain everything in hierarchy
-        Map<String,IPipeStage> recursiveStages = new HashMap<>();
-        
-        // Add all local stages
-        for (Map.Entry<String,IPipeStage> entry : getLocalPipeStages().entrySet()) {
-            recursiveStages.put(entry.getKey(), entry.getValue());
-        }
-        
-        // Iterate child modules
-        for (Map.Entry<String,IFunctionalUnit> child : children.entrySet()) {
-            IModule childUnit = child.getValue();
-            Map<String,IPipeStage> childStages = childUnit.getPipeStagesRecursive();
-            
-            // Iterate child stages, prepending name of child module to
-            // pipeline stage names.
-            String prefix = child.getKey() + '.';
-            for (Map.Entry<String,IPipeStage> entry : childStages.entrySet()) {
-                String name = prefix + entry.getKey();
-                recursiveStages.put(name, entry.getValue());
-            }
-        }
-        
-        return recursiveStages;
-    }
+    /**
+     * @return Map of all stages in this module and all submodules, with hierarchical names.
+     */
+    Map<String,IPipeStage> getPipeStagesRecursive();
 
     /**
      * @return Map of all contained pipeline registers, not including those in
@@ -231,36 +130,10 @@ public interface IModule {
      */
     public Map<String,IPipeReg> getLocalPipeRegs();
 
-    public default Map<String,IPipeReg> getPipeRegsRecursive() {
-        Map<String,IFunctionalUnit> children = getLocalChildUnits();
-        if (children == null || children.size() == 0) {
-            return getLocalPipeRegs();
-        }
-        
-        // New map to contain everything in hierarchy
-        Map<String,IPipeReg> recursiveStages = new HashMap<>();
-        
-        // Add all local stages
-        for (Map.Entry<String,IPipeReg> entry : getLocalPipeRegs().entrySet()) {
-            recursiveStages.put(entry.getKey(), entry.getValue());
-        }
-        
-        // Iterate child modules
-        for (Map.Entry<String,IFunctionalUnit> child : children.entrySet()) {
-            IModule childUnit = child.getValue();
-            Map<String,IPipeReg> childRegs = childUnit.getPipeRegsRecursive();
-            
-            // Iterate child stages, prepending name of child module to
-            // pipeline stage names.
-            String prefix = child.getKey() + '.';
-            for (Map.Entry<String,IPipeReg> entry : childRegs.entrySet()) {
-                String name = prefix + entry.getKey();
-                recursiveStages.put(name, entry.getValue());
-            }
-        }
-        
-        return recursiveStages;
-    }
+    /**
+     * @return Map of all pipeline registers in this module and all submodules, with hierarchical names.
+     */
+    Map<String,IPipeReg> getPipeRegsRecursive();
     
     
     /**
@@ -270,21 +143,44 @@ public interface IModule {
     public Map<String,IFunctionalUnit> getLocalChildUnits();
     
     /**
-     * Get pipeline stage by name.
+     * Get pipeline stage from this module, excluding children, by local name.
+     * @param name
+     * @return pipeline stage
+     */
+    public IPipeStage getLocalPipeStage(String name);
+
+    /**
+     * Get pipeline stage by name.  The name can be hierarchical but should
+     * not start with name of this module.  Instead, it should be a name
+     * that is relative to this module, either local or prefixed with the
+     * name of a child, delimited by a dot.
+     * 
      * @param name
      * @return pipeline stage
      */
     public IPipeStage getPipeStage(String name);
-
+    
     /**
-     * Get pipeline register by name.
+     * Get pipeline register from this module, excluding children, by local name.
      * @param name
      * @return pipeline register
      */
+    public IPipeReg getLocalPipeReg(String name);
+
+    /**
+     * Get pipeline register by name.  The name can be hierarchical but should
+     * not start with name of this module.  Instead, it should be a name
+     * that is relative to this module, either local or prefixed with the
+     * name of a child, delimited by a dot.
+     * 
+     * @param name
+     * @return pipeline registe
+     */
     public IPipeReg getPipeReg(String name);
+
     
     /**
-     * Get functional unit (child module) by name.
+     * Get functional unit (child module) by local name.
      * @param name
      * @return functional unit
      */
@@ -348,20 +244,7 @@ public interface IModule {
      * @param source
      * @param target
      */
-    public default void connect(String source_name, String target_name) {
-        Map<String,IPipeStage> stages = getLocalPipeStages();
-        Map<String,IPipeReg> registers = getLocalPipeRegs();
-        
-        if (stages.containsKey(source_name) && registers.containsKey(target_name)) {
-            connect(stages.get(source_name), registers.get(target_name));
-        } else if (registers.containsKey(source_name) && stages.containsKey(target_name)) {
-            connect(registers.get(source_name), stages.get(target_name));
-        } else {
-            throw new RuntimeException("Pipeline construction for module " 
-                    + getHierarchicalName() + ": Cannot connect " + 
-                    source_name + " to " + target_name);
-        }        
-    }
+    public void connect(String source_name, String target_name);
     
     
     /**
@@ -371,10 +254,7 @@ public interface IModule {
      * @param name Name of new pipeline register
      * @param props String array of property names
      */
-    default void createPipeReg(String name, String[] props) {
-        IPipeReg pr = new PipelineRegister(this, name, props);
-        this.addPipeReg(pr);
-    }
+    void createPipeReg(String name, String[] props);
 
     /**
      * Create a new pipeline register with no default property names and
@@ -382,25 +262,30 @@ public interface IModule {
      * 
      * @param name Name of new pipeline register
      */
-    default void createPipeReg(String name) {
-        IPipeReg pr = new PipelineRegister(this, name);
-        this.addPipeReg(pr);
-    }
+    void createPipeReg(String name);
     
-    
-    default void addForwardingSource(String name) {
-        IModule parent = getParent();
-        if (parent == null) {
-            throw new RuntimeException("Top level module must override addForwardingSource");
-        }
-        parent.addForwardingSource(getLocalName() + '.' + name);
-    }
+    /**
+     * Specify the name of a pipeline register that may contain a result that
+     * could be forwarded to other stages that need result values.
+     * @param name
+     */
+    void addForwardingSource(String name);
 
-    default void addForwardingTarget(String name) {
-        IModule parent = getParent();
-        if (parent == null) {
-            throw new RuntimeException("Top level module must override addForwardingTarget");
-        }
-        parent.addForwardingTarget(getLocalName() + '.' + name);
-    }
+    /**
+     * This doesn't do anything useful yet.  The idea is to make forwarding
+     * at least partially automatic.
+     * 
+     * Unfortunately, forwarding can be complicated, where some stages might
+     * need some results immediately, while others can have them posted for
+     * one cycle into the future.
+     * 
+     * For now, there are the following methods in PipelineStageBase that are
+     * to be used:
+     * - A decode stage can use registerFileLookup
+     * - Any stage that wants to set up forwarding can call forwardingSearch
+     * - Any stage whose predecessor called forwardingSearch must call doPostedForwarding
+     * 
+     * @param name
+     */
+    void addForwardingTarget(String name);
 }

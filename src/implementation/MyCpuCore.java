@@ -8,6 +8,7 @@ package implementation;
 import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import baseclasses.CpuCore;
+import examples.MultiStageFunctionalUnit;
 import tools.InstructionSequence;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
@@ -44,6 +45,7 @@ public class MyCpuCore extends CpuCore {
         createPipeReg("FetchToDecode");
         createPipeReg("DecodeToExecute");
         createPipeReg("DecodeToMemory");
+        createPipeReg("DecodeToMSFU");
         createPipeReg("ExecuteToWriteback");
         createPipeReg("MemoryToWriteback");
     }
@@ -59,6 +61,7 @@ public class MyCpuCore extends CpuCore {
 
     @Override
     public void createChildModules() {
+        addChildUnit(new MultiStageFunctionalUnit(this, "MSFU"));
     }
 
     @Override
@@ -71,24 +74,33 @@ public class MyCpuCore extends CpuCore {
         // independent functional unit, parallel to Execute.
         connect("Fetch", "FetchToDecode");
         connect("FetchToDecode", "Decode");
+        
         connect("Decode", "DecodeToExecute");
         connect("Decode", "DecodeToMemory");
+        connect("Decode", "DecodeToMSFU");
+        
         connect("DecodeToExecute", "Execute");
         connect("DecodeToMemory", "Memory");
+        connect("DecodeToMSFU", "MSFU");
+        
         connect("Execute", "ExecuteToWriteback");
         connect("Memory", "MemoryToWriteback");
+        
         connect("ExecuteToWriteback", "Writeback");
         connect("MemoryToWriteback", "Writeback");
+        connect("MSFU", "Writeback");
     }
 
     @Override
     public void specifyForwardingSources() {
         addForwardingSource("ExecuteToWriteback");
         addForwardingSource("MemoryToWriteback");
+        addForwardingSource("MSFU.Delay.out");
     }
 
     @Override
     public void specifyForwardingTargets() {
+        // Not really used for anything yet
         addForwardingTarget("DecodeToMemory");
         addForwardingTarget("DecodeToWriteback");
     }
@@ -99,6 +111,9 @@ public class MyCpuCore extends CpuCore {
     }
     
     public MyCpuCore() {
+        super(null, "core");
         initModule();
+        printHierarchy();
+        System.out.println("");
     }
 }

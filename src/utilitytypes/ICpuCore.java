@@ -76,18 +76,40 @@ public interface ICpuCore extends IModule {
      */
     public IPipeReg.EnumForwardingStatus matchForwardingRegister(String pipe_reg_name, int regnum);
     
-    
+    /**
+     * @return Set of pipeline registers that may contain forwardable results
+     */
     public Set<String> getForwardingSources();
+
+    /**
+     * Doesn't do anything useful yet.  See docs on IModule.addForwardingTarget
+     * @return
+     */
     public Set<String> getForwardingTargets();
     
-    void computeFlattenedPipeStageMap();
+    // The topological sort automatically creates a complete collection
+    // of pipeline stages, so no need to do this separately.
+    // TODO:  Provide get methods for fetching flattened collecton of
+    // stages and piperegs.
+//    void computeFlattenedPipeStageMap();
+
+    /**
+     * Compute and stores locally a collection of ALL pipeline registers
+     * throughout the whole design.  CpuCore.advanceClock uses this to 
+     * clock all registers.
+     * 
+     */
     void computeFlattenedPipeRegMap();
+
+    /**
+\     * @return The first pipeline stage in the professor (usually Fetch)
+     */
     IPipeStage getFirstStage();
     
-    default void initModule() {
-        IModule.super.initModule();
-        computeFlattenedPipeStageMap();
-        computeFlattenedPipeRegMap();
-        stageTopologicalSort(getFirstStage());
-    }
+    void initModule();
+    
+    /**
+     * Diagnostically print how stages and pipregs connect.
+     */
+    public void printHierarchy();    
 }

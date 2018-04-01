@@ -5,8 +5,10 @@
  */
 package utilitytypes;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * This defines a "container" of pipeline stages the together perform a 
@@ -16,76 +18,71 @@ import java.util.Map;
  * contained pipeline stages and pipeline registers and child functional units.
  * 
  * IFunctionalUnit is a specialization of IModule that requires the functional
- * unit to have well-defined input registers and output registers.
+ * unit to have well-defined input stages and output registers.
  * 
  * @author millerti
  */
 public interface IFunctionalUnit extends IModule {
-
-    /**
-     * Lookup input pipeline register by local name.  
-     * 
-     * @param module-local name of input pipeline register
-     * @return IPipeReg
-     */
-    default IPipeReg getInputPipeReg(String name) {
-        if (!name.startsWith("in:")) {
-            throw new RuntimeException(
-                    "Functional unit input register names must start with 'in:'");
-        }
-        return getPipeReg(name);
-    }
     
     /**
-     * Pipeline registers that are inputs to a functional unit must have names
-     * starting with "in:".
+     * Lookup input pipeline register by relative name.  
      * 
-     * @return all local pipeline registers with names that start with "in:"
-     */
-    default Map<String,IPipeReg> getInputPipeRegs() {
-        Map<String,IPipeReg> regs = new HashMap<>();
-        
-        for (Map.Entry<String,IPipeReg> entry : getLocalPipeRegs().entrySet()) {
-            String name = entry.getKey();
-            if (name.startsWith("in:")) {
-                regs.put(name, entry.getValue());
-            }
-        }
-        
-        return regs;
-    }
-    
-    /**
-     * Lookup output pipeline register by local name.  
-     * 
-     * @param module-local name of output pipeline register
+     * @param  name of input pipeline register
      * @return IPipeReg
      */
-    default IPipeReg getOutputPipeReg(String name) {
-        if (!name.startsWith("out:")) {
-            throw new RuntimeException(
-                    "Functional unit output register names must start with 'out:'");
-        }
-        return getPipeReg(name);
-    }
+    IPipeStage getInputPipeStage(String name);
+    
+    /**
+     * If this functional unit has any input pipeline stages that are inputs
+     * to its parent module, then override this method to return that subset of
+     * stages.
+     * @return
+     */
+    Map<String,IPipeStage> getExternalInputPipeStages();
+    
+    /**
+     * Specify an input pipeline stage to be an input to its parent module;
+     * @param name
+     */
+    void specifyExternalInputStage(String name);
+    
+    /**
+     * Pipeline registers that are inputs to a functional unit must be named
+     * "in" or have a name starting with "in:".
+     * 
+     * @return all input pipeline registers
+     */
+    Map<String,IPipeStage> getInputPipeStages();
+    
+    /**
+     * Lookup output pipeline register by relative name.  
+     * 
+     * @param  name of output pipeline register
+     * @return IPipeReg
+     */
+    IPipeReg getOutputPipeReg(String name);
+    
+    
+    /**
+     * If this functional unit has any input pipeline stages that are inputs
+     * to its parent module, then override this method to return that subset of
+     * stages.
+     * @return
+     */
+    Map<String,IPipeReg> getExternalOutputPipeRegs();
+    
+    /**
+     * Specify a pipeline register to be an output from its parent module
+     * @param name
+     */
+    void specifyExternalOutputReg(String name);
     
     /**
      * Pipeline registers that are outputs from a functional unit must have names
-     * starting with "out:".
+     * that are "out" or start with "out:".
      * 
-     * @return all local pipeline registers with names that start with "out:"
+     * @return all output pipeline registers
      */
-    default Map<String,IPipeReg> getOutputPipeRegs() {
-        Map<String,IPipeReg> regs = new HashMap<>();
-        
-        for (Map.Entry<String,IPipeReg> entry : getLocalPipeRegs().entrySet()) {
-            String name = entry.getKey();
-            if (name.startsWith("out:")) {
-                regs.put(name, entry.getValue());
-            }
-        }
-        
-        return regs;
-    }
+    Map<String,IPipeReg> getOutputPipeRegs();
     
 }

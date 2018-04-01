@@ -14,7 +14,7 @@ import java.util.List;
  *
  * @author millerti
  */
-public interface IPipeStage {
+public interface IPipeStage extends IComponent {
     /**
      * Clear the list of pipeline stage status keywords.  This is called
  by evaluate at the beginning of the clock cycle.
@@ -70,16 +70,19 @@ public interface IPipeStage {
     /**
      * Returns true if the stage is stuck waiting on a resource.  
      * This defaults to false at the start of each clock cycle, and its
-     * value can be changed by calling setResourceStall.
+ value can be changed by calling setResourceWait.
      * @return 
      */
     public boolean stageWaitingOnResource();
 
     /**
-     * Set (or clear) the pipeline stage stall status.
-     * @param stalled
+     * Set (or clear) the pipeline stage stall status.  To set, provide a 
+     * non-empty string with the name of the resource being waited on.  To
+     * clear, provide a null argument.
+     * @param reason_stalled
      */
-    public void setResourceStall(boolean stalled);
+    public void setResourceWait(String reason_stalled);
+    public String getResourceWaitReason();
 
     /**
      * Returns true when any input to the pipeline stage contains work to do
@@ -94,7 +97,7 @@ public interface IPipeStage {
  - Read input pipeline registers, using readInput(input_number).
  - Perform calculations on those inputs.
  - Determine when those calculations require external resources that are
-   not available, using setResourceStall() to indicate when the pipeline
+   not available, using setResourceWait() to indicate when the pipeline
    stage is in a wait condition.
  - Allocate output latches for filling with output data, by calling 
    newOutput(output_number)
@@ -157,6 +160,11 @@ public interface IPipeStage {
      */
     public List<IPipeReg> getInputRegisters();
 
+    /**
+     * @return Number of input registers
+     */
+    public int numInputRegisters();
+    
     /**
      * Get the index of the named pipeline register in this stage's list of
      * output registers.
@@ -232,6 +240,11 @@ public interface IPipeStage {
     public List<IPipeReg> getOutputRegisters();
     
     /**
+     * @return number of output registers
+     */
+    int numOutputRegisters();
+    
+    /**
      * Connect the specified pipeline register to this pipeline stage as an
      * input.  Any number of inputs may be added.  The order in which 
      * pipeline registers is added implicitly specifies the index of the
@@ -253,21 +266,13 @@ public interface IPipeStage {
      */
     public void addOutputRegister(IPipeReg output_reg);
     
-    /**
-     * Restore pipeline stage to initial conditions
-     */
-    public void reset();
-
-    /**
-     * @return the name of this pipeline stage
-     */
-    public String getName();
     
     /**
      * Fetches all valid source registers from the register file.
      * 
-     * It is important to call this method on a duplicate of the
-     * original input latch.
+     * IMPORTANT: It is important to call this method on a duplicate of the
+     * original input latch.  Generally, just make a duplcate of the latch
+     * at the top of the compute method.
      * 
      * This method should only be called from Decode or any stage that is
      * supposed to be allowed access to the register file.
@@ -290,8 +295,9 @@ public interface IPipeStage {
      * copied to the output latch so that the next stage can satisfy its
      * dependencies on the next cycle by calling doPostedFowarding.
      * 
-     * It is important to call this method on a duplicate of the
-     * original input latch.
+     * IMPORTANT: It is important to call this method on a duplicate of the
+     * original input latch.  Generally, just make a duplcate of the latch
+     * at the top of the compute method.
      * 
      * @param input source register slave latch
      */
@@ -303,10 +309,25 @@ public interface IPipeStage {
      * retrieve operand values from the pipeline registers whose names
      * are values of those properties.
      * 
-     * It is important to call this method on a duplicate of the
-     * original input latch.
+     * IMPORTANT: It is important to call this method on a duplicate of the
+     * original input latch.  Generally, just make a duplcate of the latch
+     * at the top of the compute method.
      * 
      * @param input source register slave latch with forwarding tags
      */
     public void doPostedForwarding(Latch input);
+    
+    /**
+     * This method specifies that this pipeline stage is an input stage for 
+     * its parent module.
+     */
+    public void markExternalInput();
+    
+    /**
+     * For diagnostic purposes, this returns a string array containing 
+     * information about input and output registers connected to this 
+     * pipeline stage.
+     * @return
+     */
+    public String[] connectionsToStringArr();    
 }

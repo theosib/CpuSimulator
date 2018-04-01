@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import utilitytypes.IFunctionalUnit;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
@@ -23,12 +24,10 @@ import utilitytypes.IPipeStage;
  * 
  * @author millerti
  */
-public class PipelineRegister implements IPipeReg {
-    protected final IModule parent;
+public class PipelineRegister extends ComponentBase implements IPipeReg {
     int cycle_number_slave = 0;
     int cycle_number_master = 0;
     
-    protected final String name;
     protected Latch master;
     protected Latch slave;
     protected final Latch invalid;
@@ -40,22 +39,32 @@ public class PipelineRegister implements IPipeReg {
 
     public void setStageBefore(IPipeStage s) { 
         if (stage_before != null) {
-            throw new RuntimeException("Pipeline register " + getName() +
+            throw new RuntimeException("Pipeline register " + getHierarchicalName() +
                     " is already connected as an output from pipeline stage " +
-                    stage_before.getName());
+                    stage_before.getHierarchicalName());
         }
         stage_before = s; 
     }
     public void setStageAfter(IPipeStage s) { 
         if (stage_after != null) {
-            throw new RuntimeException("Pipeline register " + getName() +
+            throw new RuntimeException("Pipeline register " + getHierarchicalName() +
                     " is already connected as an input to pipeline stage " +
-                    stage_after.getName());
+                    stage_after.getHierarchicalName());
         }
         stage_after = s; 
     }
-    public IPipeStage getStageBefore() { return stage_before; }
-    public IPipeStage getStageAfter() { return stage_after; }
+    public IPipeStage getStageBefore() { 
+        if (stage_before == null) {
+            throw new RuntimeException("There is no pipeline stage before PipeReg " + this.getHierarchicalName());
+        }
+        return stage_before; 
+    }
+    public IPipeStage getStageAfter() { 
+        if (stage_after == null) {
+            throw new RuntimeException("There is no pipeline stage after PipeReg " + this.getHierarchicalName());
+        }
+        return stage_after; 
+    }
 
     protected int index_in_before, index_in_after;
     public void setIndexInBefore(int ix) { index_in_before = ix; }
@@ -82,12 +91,16 @@ public class PipelineRegister implements IPipeReg {
     public void writeBubble() { 
         master = invalid; 
 //        System.out.println("Register " + getName() + " master written with bubble");
-        cycle_number_master = parent.getCycleNumber();
+        cycle_number_master = getCycleNumber();
     }
     public boolean isMasterBubble() { 
-        if (cycle_number_master != parent.getCycleNumber()) {
-            getStageBefore().evaluate();
-            cycle_number_master = parent.getCycleNumber();
+        if (cycle_number_master != getCycleNumber()) {
+            IPipeStage before = getStageBefore();
+            if (before == null) {
+                throw new RuntimeException("No pipeline stage before " + getHierarchicalName());
+            }
+            before.evaluate();
+            cycle_number_master = getCycleNumber();
         }
         return master.isNull(); 
     }
@@ -101,7 +114,7 @@ public class PipelineRegister implements IPipeReg {
     @Override
     public void setSlaveStall(boolean s) { 
         slave_stalled = s; 
-        cycle_number_slave = parent.getCycleNumber();
+        cycle_number_slave = getCycleNumber();
     }
     
     @Override
@@ -114,14 +127,14 @@ public class PipelineRegister implements IPipeReg {
     }    
 
     private boolean isSlaveStalled() {   
-        if (cycle_number_slave != parent.getCycleNumber()) {
+        if (cycle_number_slave != getCycleNumber()) {
             if (slave.isNull()) {
                 slave_stalled = false;
             } else {
                 slave_stalled = true;
                 getStageAfter().evaluate();
             }
-            cycle_number_slave = parent.getCycleNumber();
+            cycle_number_slave = getCycleNumber();
         }
         if (slave_stalled) getStageBefore().addStatusWord("OutputStall");
         return slave_stalled;
@@ -160,7 +173,7 @@ public class PipelineRegister implements IPipeReg {
 //        System.out.println("Register " + getName() + " master written with " +
 //            output.ins);
         master = output;
-        cycle_number_master = parent.getCycleNumber();
+        cycle_number_master = getCycleNumber();
         
         int stage_dst_index = getIndexInBefore();
         IPipeStage stage = getStageBefore();
@@ -205,12 +218,8 @@ public class PipelineRegister implements IPipeReg {
     public void reset() {
         cycle_number_slave = 0;
         cycle_number_master = 0;
-        try {
-            master = new Latch(this);
-            slave = new Latch(this);
-        } catch (Exception ex) {
-            System.err.println("Exception " + this.getClass().getSimpleName() + " resetting latches: " + ex);
-        }
+        master = new Latch(this);
+        slave = new Latch(this);
     }
     
     
@@ -223,6 +232,8 @@ public class PipelineRegister implements IPipeReg {
     
         
     public EnumForwardingStatus matchForwardingRegister(int regnum) {
+//        System.out.println("Trying to match R" + regnum + " against " +
+//                getHierarchicalName());
         if (slave.getResultRegNum()==regnum && slave.hasResultValue()) {
             return EnumForwardingStatus.VALID_NOW;
         }
@@ -238,13 +249,11 @@ public class PipelineRegister implements IPipeReg {
     }
     
 
-
-    
-        
-    public String getName() {
-        return name;
+    public void markExternalOutput() {
+        IFunctionalUnit parent = (IFunctionalUnit)getParent();
+        parent.specifyExternalOutputReg(getLocalName());
     }
-    
+        
     /**
      * Constructor that accepts Set of property names
      * @param core reference to CpuCore
@@ -252,8 +261,7 @@ public class PipelineRegister implements IPipeReg {
      * @param proplist Set of property names
      */
     public PipelineRegister(IModule parent, String name, Set<String> proplist) {
-        this.parent = parent;
-        this.name = name;
+        super(parent, name);
         setPropertiesList(proplist);
         invalid = new Latch(this);
         invalid.setInvalid();
@@ -267,8 +275,7 @@ public class PipelineRegister implements IPipeReg {
      * @param proplist array of property names
      */
     public PipelineRegister(IModule parent, String name, String[] proplist) {
-        this.parent = parent;
-        this.name = name;
+        super(parent, name);
         setPropertiesList(new HashSet<String>(Arrays.asList(proplist)));
         invalid = new Latch(this);
         invalid.setInvalid();
@@ -284,8 +291,7 @@ public class PipelineRegister implements IPipeReg {
      * @param proplist array of property names
      */
     public PipelineRegister(IModule parent, String name) {
-        this.parent = parent;
-        this.name = name;
+        super(parent, name);
         invalid = new Latch(this);
         invalid.setInvalid();
         reset();
@@ -300,12 +306,7 @@ public class PipelineRegister implements IPipeReg {
      * @return
      */
     public Latch newLatch() {
-        try {
-            return new Latch(this);
-        } catch (Exception ex) {
-            System.err.println("Exception " + this.getClass().getSimpleName() + " creating pipeline latch: " + ex);
-        }
-        return null;
+        return new Latch(this);
     }
     
     /**

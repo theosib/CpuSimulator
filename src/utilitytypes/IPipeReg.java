@@ -15,7 +15,7 @@ import java.util.Set;
  *
  * @author millerti
  */
-public interface IPipeReg {
+public interface IPipeReg extends IComponent {
 
     /**
      * Set the list of data properties that latches held by this pipeline
@@ -160,9 +160,7 @@ public interface IPipeReg {
      * @return Slave latch contents for THIS pipeline register one cycle in the
      * future.
      */
-    public default Latch readNextCycle() {
-        return invalidLatch();
-    }
+    public Latch readNextCycle();
 
     /**
      * Store the given latch contents in the master latch of this pipeline
@@ -181,10 +179,6 @@ public interface IPipeReg {
      */
     public void advanceClock();
     
-    /**
-     * Restore this pipeline register to initial conditions.
-     */
-    public void reset();
     
     /**
      * Factory method to generate a new latch whose parent is this pipeline
@@ -236,7 +230,7 @@ public interface IPipeReg {
      * Otherwise return -1.
      * @return
      */
-    public default int getResultRegister() { return -1; }
+    public int getResultRegister();
     
     /**
      * Perform a query on this pipeline register to determine if the given
@@ -247,17 +241,13 @@ public interface IPipeReg {
      * @param regnum Physical or architectural register number
      * @return EnumForwardingStatus indicator.  See above.
      */
-    public default EnumForwardingStatus matchForwardingRegister(int regnum) {
-        return EnumForwardingStatus.NULL;
-    }
+    public EnumForwardingStatus matchForwardingRegister(int regnum);
     
     /**
      * @return Computed result value in the slave latch, if any.
      */
-    public default int getResultValue() { return 0; }
+    public int getResultValue();
     
-    /**
-     * @return Name of this pipeline register
-     */
-    public String getName();
+    
+    public void markExternalOutput();
 }

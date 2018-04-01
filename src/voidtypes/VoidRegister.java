@@ -12,6 +12,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import utilitytypes.ICpuCore;
+import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 
@@ -19,21 +21,11 @@ import utilitytypes.IPipeStage;
  *
  * @author millerti
  */
-public class VoidRegister implements IPipeReg {
-    private static VoidRegister singleton = null;
-    static {
-        try {
-            singleton = new VoidRegister();
-        } catch (Exception ex) {
-            System.err.println("Exception creating VoidRegister singleton: " + ex);
-            System.exit(0);
-        }
-    }
-    
+public class VoidRegister extends VoidComponent implements IPipeReg {
+    private static VoidRegister singleton = new VoidRegister();
     static public VoidRegister getVoidRegister() {
         return singleton;
     }
-    
     private VoidRegister() {}
     
     @Override
@@ -56,9 +48,6 @@ public class VoidRegister implements IPipeReg {
     
     @Override
     public void advanceClock() { }
-    
-    @Override
-    public void reset() { }
 
     @Override
     public VoidLatch newLatch() {
@@ -68,7 +57,7 @@ public class VoidRegister implements IPipeReg {
     @Override
     public void setPropertiesList(Set<String> pl) {}
 
-    private static final Set<String> proplist = Collections.unmodifiableSet(new HashSet<String>());
+    public static final Set<String> proplist = Collections.unmodifiableSet(new HashSet<String>());
     
     @Override
     public Set<String> getPropertiesList() { return proplist; }
@@ -80,10 +69,14 @@ public class VoidRegister implements IPipeReg {
     public void setStageAfter(IPipeStage s) {}
 
     @Override
-    public IPipeStage getStageBefore() { return null; }
+    public IPipeStage getStageBefore() { 
+        return VoidStage.getVoidStage();
+    }
 
     @Override
-    public IPipeStage getStageAfter() { return null; }
+    public IPipeStage getStageAfter() { 
+        return VoidStage.getVoidStage();
+    }
 
     @Override
     public void setIndexInBefore(int ix) {}
@@ -100,11 +93,6 @@ public class VoidRegister implements IPipeReg {
     @Override
     public Latch invalidLatch() {
         return VoidLatch.getVoidLatch();
-    }
-
-    @Override
-    public String getName() {
-        return "VoidRegister";
     }
 
     @Override
@@ -129,4 +117,7 @@ public class VoidRegister implements IPipeReg {
     public int getResultValue() {
         return 0;
     }
+
+    @Override
+    public void markExternalOutput() {}
 }

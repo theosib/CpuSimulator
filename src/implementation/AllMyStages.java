@@ -63,7 +63,7 @@ public class AllMyStages {
         
         @Override
         public String getStatus() {
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             if (globals.getPropertyInteger("current_branch_state") == GlobalData.BRANCH_STATE_WAITING) {
                 addStatusWord("ResolveWait");
             }
@@ -72,7 +72,7 @@ public class AllMyStages {
 
         @Override
         public void compute(Latch input, Latch output) {
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             
             // Get the PC and fetch the instruction
             int pc = globals.getPropertyInteger(PROGRAM_COUNTER);
@@ -191,7 +191,7 @@ public class AllMyStages {
 
         @Override
         public String getStatus() {
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             String s = super.getStatus();
             if (squashing_instruction) {
                 s = "Squashing";
@@ -217,7 +217,7 @@ public class AllMyStages {
             
             setActivity(ins.toString());
 
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             if (globals.getPropertyInteger("branch_state_decode") == GlobalData.BRANCH_STATE_TAKEN) {
                 // Drop the fall-through instruction.
                 squashing_instruction = true;
@@ -240,8 +240,8 @@ public class AllMyStages {
             if (opcode.needsWriteback()) {
                 int oper0reg = oper0.getRegisterNumber();
                 if (reginvalid[oper0reg]) {
-//                    System.out.println("Stall because dest R" + oper0reg + " is invalid");
-                    setResourceStall(true);
+                    //System.out.println("Stall because dest R" + oper0reg + " is invalid");
+                    setResourceWait("DestR"+oper0reg);
                     return;
                 }
             }
@@ -266,7 +266,7 @@ public class AllMyStages {
                         // If we do not already have a value for the branch
                         // condition register, must stall.
 //                        System.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
-                        this.setResourceStall(true);
+                        this.setResourceWait("R"+oper0.getRegisterNumber());
                         // Nothing else to do.  Bail out.
                         return;
                     }
@@ -308,7 +308,7 @@ public class AllMyStages {
                             // operand is valid.
                             if (!src1.hasValue()) {
 //                                System.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
-                                this.setResourceStall(true);
+                                this.setResourceWait("R" + src1.getRegisterNumber());
                                 // Nothing else to do.  Bail out.
                                 return;
                             }
@@ -346,7 +346,7 @@ public class AllMyStages {
                             // If branching to address in register, make sure
                             // operand is valid.
 //                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
-                            this.setResourceStall(true);
+                            this.setResourceWait("R" + oper0.getRegisterNumber());
                             // Nothing else to do.  Bail out.
                             return;
                         }
@@ -373,6 +373,10 @@ public class AllMyStages {
             // Allocate an output latch for the output pipeline register
             // appropriate for the type of instruction being processed.
             Latch output;
+            if (opcode == EnumOpcode.MUL) {
+                int output_num = lookupOutput("DecodeToMSFU");
+                output = this.newOutput(output_num);
+            } else
             if (opcode.accessesMemory()) {
                 int output_num = lookupOutput("DecodeToMemory");
                 output = this.newOutput(output_num);
@@ -407,7 +411,8 @@ public class AllMyStages {
                 if (!input.hasProperty(propname)) {
                     // If any source operand is not available
                     // now or on the next cycle, then stall.
-                    this.setResourceStall(true);
+                    //System.out.println("Stall because no " + propname);
+                    this.setResourceWait("R" + srcRegNum);
                     // Nothing else to do.  Bail out.
                     return;
                 }
@@ -446,7 +451,6 @@ public class AllMyStages {
         @Override
         public void compute(Latch input, Latch output) {
             if (input.isNull()) return;
-            input = input.duplicate();
             doPostedForwarding(input);
             InstructionBase ins = input.getInstruction();
 
@@ -471,7 +475,6 @@ public class AllMyStages {
         @Override
         public void compute(Latch input, Latch output) {
             if (input.isNull()) return;
-            input = input.duplicate();
             doPostedForwarding(input);
             InstructionBase ins = input.getInstruction();
 
@@ -485,7 +488,7 @@ public class AllMyStages {
             int addr = source1 + source2;
             
             int value = 0;
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             int[] memory = globals.getPropertyIntArray(MAIN_MEMORY);
 
             switch (ins.getOpcode()) {
@@ -521,18 +524,20 @@ public class AllMyStages {
 
         @Override
         public void compute() {
-            IGlobals globals = (GlobalData)core.getGlobals();
+            IGlobals globals = (GlobalData)getCore().getGlobals();
             // Get register file and valid flags from globals
             int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
             boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
             
-            // Writeback has two inputs, so we just loop over them
-            for (int i=0; i<2; i++) {
+            // Writeback has multiple inputs, so we just loop over them
+            int num_inputs = this.getInputRegisters().size();
+            for (int i=0; i<num_inputs; i++) {
                 // Get the input by index and the instruction it contains
                 Latch input = this.readInput(i);
-                InstructionBase ins = input.getInstruction();
                 // Skip to the next iteration of there is no instruction.
-                if (ins.isNull()) continue;
+                if (input.isNull()) continue;
+                
+                InstructionBase ins = input.getInstruction();
                 
                 if (ins.getOpcode().needsWriteback()) {
                     // By definition, oper0 is a register and the destination.

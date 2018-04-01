@@ -187,7 +187,7 @@ public class Latch extends PropertiesContainer {
      * @return Name of the pipeline register that contains or produced this
      *         latch.
      */
-    public String getName() { return parent.getName(); }
+    public String getName() { return parent.getHierarchicalName(); }
     
     public void copyParentPropertiesFrom(Latch source) {
         if (invalid) return;
@@ -200,6 +200,8 @@ public class Latch extends PropertiesContainer {
     }
     
     private Latch duplicate_of = null;
+    
+    public boolean isDuplicate() { return duplicate_of != null; }
     
     public Latch duplicate() {
         if (invalid) return this;

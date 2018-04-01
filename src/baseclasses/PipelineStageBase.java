@@ -13,7 +13,9 @@ import java.util.List;
 import java.util.Set;
 import utilitytypes.EnumOpcode;
 import utilitytypes.ICpuCore;
+import utilitytypes.IFunctionalUnit;
 import utilitytypes.IGlobals;
+import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import static utilitytypes.IProperties.REGISTER_FILE;
@@ -27,13 +29,13 @@ import voidtypes.VoidLatch;
  * 
  * @author millerti
  */
-public class PipelineStageBase implements IPipeStage {
-    protected final String name;
-    protected ICpuCore core;
-    int cycle_number = 0;
-    Set<String> input_doing;
-    Set<String> output_doing;
-    Set<String> status_words;
+public class PipelineStageBase extends ComponentBase implements IPipeStage {
+    // TODO:  Make all of these private and provide a full complement of
+    // accessor methods
+    protected int my_cycle_number = 0;
+    protected Set<String> input_doing;
+    protected Set<String> output_doing;
+    protected Set<String> status_words;
     
     @Override
     public void clearStatus() {
@@ -46,21 +48,27 @@ public class PipelineStageBase implements IPipeStage {
         status_words.add(word);
     }
     
-    int topo_order = 0;
+    private int topo_order = 0;
     @Override
     public void setTopoOrder(int pos) { topo_order = pos; }
     @Override
     public int getTopoOrder() { return topo_order; }
     
-    protected List<IPipeReg> input_regs;
+    private List<IPipeReg> input_regs;
     @Override
     public List<IPipeReg> getInputRegisters() { return input_regs; }
+    
+    @Override
+    public int numInputRegisters() {
+        if (input_regs == null) return 0;
+        return input_regs.size();
+    }    
     
     @Override
     public int lookupInput(String name) {
         if (input_regs == null) return -1;
         for (int i=0; i<input_regs.size(); i++) {
-            if (name == input_regs.get(i).getName()) return i;
+            if (name == input_regs.get(i).getLocalName()) return i;
         }
         return -1;
     }
@@ -85,17 +93,21 @@ public class PipelineStageBase implements IPipeStage {
         input_doing.add(doing);
     }
     
-    
-    
     protected List<IPipeReg> output_regs;
     @Override
     public List<IPipeReg> getOutputRegisters() { return output_regs; }
     
     @Override
+    public int numOutputRegisters() {
+        if (output_regs == null) return 0;
+        return output_regs.size();
+    }    
+    
+    @Override
     public int lookupOutput(String name) {
         if (output_regs == null) return -1;
         for (int i=0; i<output_regs.size(); i++) {
-            if (name == output_regs.get(i).getName()) return i;
+            if (name == output_regs.get(i).getLocalName()) return i;
         }
         return -1;
     }
@@ -144,7 +156,10 @@ public class PipelineStageBase implements IPipeStage {
     @Override
     public String getStatus() {
         if (stageWaitingOnResource()) {
-            addStatusWord("ResourceWait");
+            String str = "ResourceWait";
+            String reason = getResourceWaitReason();
+            if (reason.length()>0) str += "(" + reason + ")";
+            addStatusWord(str);
         }
         if (stageHasWorkToDo()) {
             addStatusWord("HasWork");
@@ -154,11 +169,13 @@ public class PipelineStageBase implements IPipeStage {
     }
     
 
-    protected boolean resource_wait;
+    protected String resource_wait;
     @Override
-    public boolean stageWaitingOnResource() { return resource_wait; }
+    public boolean stageWaitingOnResource() { return resource_wait != null; }
     @Override
-    public void setResourceStall(boolean x) { resource_wait = x; }
+    public void setResourceWait(String reason) { resource_wait = reason; }
+    @Override
+    public String getResourceWaitReason() { return resource_wait; }
     
     /**
      * Return true when this pipeline stage has a valid instruction as input 
@@ -188,12 +205,21 @@ public class PipelineStageBase implements IPipeStage {
         }
     }
     
-    
+    /**
+     * When using this method, be sure to make a duplicate of the input Latch
+     * at the top of the compute method!
+     * 
+     * @param input 
+     */
+    @Override
     public void registerFileLookup(Latch input) {
+        if (!input.isDuplicate()) {
+            throw new RuntimeException("regiterFileLookup must be called on a duplicate of the original input latch!");
+        }
         InstructionBase ins = input.getInstruction();
         
         // Get the register file and valid flags
-        IGlobals globals = core.getGlobals();
+        IGlobals globals = getCore().getGlobals();
         int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
         boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
 
@@ -228,15 +254,28 @@ public class PipelineStageBase implements IPipeStage {
     }
     
     
+    /**
+     * When using this method, be sure to make a duplicate of the input Latch
+     * at the top of the compute method!
+     * 
+     * @param input 
+     */
+    @Override
     public void forwardingSearch(Latch input) {
-        input = input.duplicate();
+        if (!input.isDuplicate()) {
+            throw new RuntimeException("forwardingSearch must be called on a duplicate of the original input latch!");
+        }
         InstructionBase ins = input.getInstruction();
+        ICpuCore core = getCore();
         
         input.deleteProperty("forward0");
         input.deleteProperty("forward1");
         input.deleteProperty("forward2");
         
         Set<String> fwdSources = core.getForwardingSources();
+//        for (String s : fwdSources) {
+//            System.out.println(s);
+//        }
 
         EnumOpcode opcode = ins.getOpcode();
         boolean oper0src = opcode.oper0IsSource();
@@ -314,8 +353,28 @@ public class PipelineStageBase implements IPipeStage {
         }
     }
     
+    /**
+     * When using this method, be sure to apply it to the ORIGINAL input latch.
+     * 
+     * If the stage stalls for any reason and the input can't be consumed,
+     * then the forwarding information passed from the prior stage will be
+     * out-of-date on the next cycle, and stage will acquire bad data from
+     * the forwarding sources (which are likely to contain new data).  
+     * 
+     * Instead, it is necessary to retrieve forwarded values regardless of 
+     * any stalls.  If there is a stall, those forwarded values must be kept,
+     * and they are kept by modifying the ORIGINAL input latch, rather than
+     * a duplicate.
+     * 
+     * @param input 
+     */
+    @Override
     public void doPostedForwarding(Latch input) {
+        if (input.isDuplicate()) {
+            throw new RuntimeException("doPostedForwarding must be called on the original input latch!");
+        }
         InstructionBase ins = input.getInstruction();
+        ICpuCore core = getCore();
         
         if (input.hasProperty("forward0")) {
             String pipe_reg_name = input.getPropertyString("forward0");
@@ -324,9 +383,14 @@ public class PipelineStageBase implements IPipeStage {
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to oper0 of %s\n", 
                         ins.getOper0().getRegisterNumber(), oper0,
-                        pipe_reg_name, getName());
+                        pipe_reg_name, getHierarchicalName());
             }
+            
+            // Remove the property so that if there's a stall, forwarding is
+            // not attempted again on the next cycle.
+            input.deleteProperty("forward0");
         }
+        
         if (input.hasProperty("forward1")) {
             String pipe_reg_name = input.getPropertyString("forward1");
             int source1 = core.getResultValue(pipe_reg_name);
@@ -334,9 +398,14 @@ public class PipelineStageBase implements IPipeStage {
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to src1 of %s\n", 
                         ins.getSrc1().getRegisterNumber(), source1,
-                        pipe_reg_name, getName());
+                        pipe_reg_name, getHierarchicalName());
             }
+
+            // Remove the property so that if there's a stall, forwarding is
+            // not attempted again on the next cycle.
+            input.deleteProperty("forward1");
         }
+        
         if (input.hasProperty("forward2")) {
             String pipe_reg_name = input.getPropertyString("forward2");
             int source2 = core.getResultValue(pipe_reg_name);
@@ -344,8 +413,12 @@ public class PipelineStageBase implements IPipeStage {
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to src2 of %s\n", 
                         ins.getSrc2().getRegisterNumber(), source2,
-                        pipe_reg_name, getName());
+                        pipe_reg_name, getHierarchicalName());
             }
+
+            // Remove the property so that if there's a stall, forwarding is
+            // not attempted again on the next cycle.
+            input.deleteProperty("forward2");
         }
     }
     
@@ -356,14 +429,15 @@ public class PipelineStageBase implements IPipeStage {
      */
     @Override
     public void evaluate() {
-        if (cycle_number == core.getCycleNumber()) return;
+        ICpuCore core = getCore();
+        if (my_cycle_number == core.getCycleNumber()) return;
 //        System.out.println("Running evaluate for " + getName());
 
         input_doing = new HashSet<>();
         output_doing = new HashSet<>();
         clearStatus();
         clearActivity();
-        setResourceStall(false);
+        setResourceWait(null);
         
         int num_inputs = 0;
         int num_outputs = 0;
@@ -426,7 +500,7 @@ public class PipelineStageBase implements IPipeStage {
             }
         }
         
-        cycle_number = core.getCycleNumber();
+        my_cycle_number = core.getCycleNumber();
     }
     
     /**
@@ -477,9 +551,9 @@ public class PipelineStageBase implements IPipeStage {
      */
     @Override
     public void reset() {
-        cycle_number = 0;
+        my_cycle_number = 0;
         currently_doing = null;
-        resource_wait = false;
+        resource_wait = null;
         input_doing = null;
         output_doing = null;
         status_words = null;
@@ -501,17 +575,74 @@ public class PipelineStageBase implements IPipeStage {
         output_regs.add(output);
     }
     
-    public PipelineStageBase(ICpuCore core, String name, IPipeReg input, IPipeReg output) {
-        this.core = core;
-        this.name = name;
-        addInputRegister(input);
-        addOutputRegister(output);
+//    public PipelineStageBase(IModule parent, String name, IPipeReg input, IPipeReg output) {
+//        super(parent, name);
+//        addInputRegister(input);
+//        addOutputRegister(output);
+//    }
+    public PipelineStageBase(IModule parent, String name) {
+        super(parent, name);
     }
-    public PipelineStageBase(ICpuCore core, String name) {
-        this.core = core;
-        this.name = name;
+        
+    
+//    @Override
+//    public void printHierarchy(int depth, IModule first) {
+//        IModule myparent = getParent();
+//        //IModule grandparent = (myparent==null) ? null : (myparent.getParent());
+//        
+//        StringBuilder sb = new StringBuilder();
+//        for (int i=0; i<depth; i++) {
+//            sb.append("   ");
+//        }
+//        
+//        int num_inputs = input_regs.size();
+//        sb.append('(');
+//        for (int i=0; i<num_inputs; i++) {
+//            
+//        }
+//        
+//    }
+    
+    
+    private String parentheticalList(List<IPipeReg> list, IModule myparent) {
+        if (list == null) return "()";
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append('(');
+        int count = list.size();
+        for (int i=0; i<count; i++) {
+            IPipeReg in = list.get(i);
+            String name;
+            //if (in.getParent() != myparent) {
+                name = in.getHierarchicalName();
+            //} else {
+            //    name = in.getLocalName();
+            //}
+            
+            if (i>0) sb.append(", ");
+            sb.append(name);
+        }
+        sb.append(')');
+        return sb.toString();
     }
     
+    public String[] connectionsToStringArr() {
+        String[] cols = new String[3];
+        IModule myparent = getParent();
+        
+        cols[0] = parentheticalList(input_regs, myparent);
+        cols[1] = getHierarchicalName();
+        cols[2] = parentheticalList(output_regs, myparent);
+        
+        return cols;
+    }
+    
+    
     @Override
-    public String getName() { return name; }
+    public void markExternalInput() {
+        IFunctionalUnit parent = (IFunctionalUnit)getParent();
+        parent.specifyExternalInputStage(getLocalName());
+    }    
+
+    
 }
