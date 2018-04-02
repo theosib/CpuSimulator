@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import baseclasses.Latch;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -123,6 +124,11 @@ public class VoidStage extends VoidComponent implements IPipeStage {
     public String[] connectionsToStringArr() {
         String[] stringarr = {"", "", ""};
         return stringarr;
+    }
+
+    @Override
+    public String getShortName() {
+        return ComponentBase.getOnlyCaps(getLocalName(), "s");
     }
     
 }

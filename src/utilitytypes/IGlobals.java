@@ -31,4 +31,5 @@ public interface IGlobals extends IProperties {
     public void setup();
     public InstructionBase getInstructionAt(int pc_address);
     public void loadProgram(InstructionSequence seq);
+    public IRegFile getRegisterFile();
 }

@@ -5,7 +5,9 @@
  */
 package voidtypes;
 
+import utilitytypes.IRegFile;
 import utilitytypes.Operand;
+import utilitytypes.RegisterFile;
 
 /**
  *
@@ -25,9 +27,34 @@ public class VoidOperand extends Operand {
     @Override
     public int getValue() { return 0; }
     @Override
-    public void setValue(int v) { }
+    public float getFloatValue() { return 0; }
     @Override
-    public boolean hasValue() { return false; }
+    public String getValueAsString() { return "??"; }
+    public void lookUpFromRegisterFile(IRegFile regfile) {}
+    @Override
+    public void setIntValue(int v) { }
+    @Override
+    public void setFloatValue(int v) { }
+    @Override
+    public void setFloatValue(float v) { }
+    
+    @Override
+    public void markValid(boolean valid) {  }
+    @Override
+    public void markFloat(boolean fl) { }
+    
+    @Override
+    public boolean hasValue() { return false; }    
+    @Override
+    public boolean hasFloatValue() { return false; }
+    @Override
+    public boolean isFloat() { return false; }
+    
+    @Override
+    public String getRegisterName() { return "void"; }
+
+    @Override
+    public String toString() { return "void"; }
     
     @Override
     public Operand duplicate() {

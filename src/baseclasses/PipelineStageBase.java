@@ -18,8 +18,7 @@ import utilitytypes.IGlobals;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
-import static utilitytypes.IProperties.REGISTER_FILE;
-import static utilitytypes.IProperties.REGISTER_INVALID;
+import utilitytypes.IRegFile;
 import utilitytypes.Operand;
 import voidtypes.VoidLatch;
 
@@ -136,9 +135,9 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
 //                " written with " + out.ins.toString());
         output_doing.add(out.ins.toString());
         if (out.hasResultValue()) {
-            int reg = out.getResultRegNum();
+            String regname = out.getResultRegName();
             int val = out.getResultValue();
-            addStatusWord("R" + reg + "=" + val);
+            addStatusWord(regname + "=" + val);
         }
     }
     
@@ -220,8 +219,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         // Get the register file and valid flags
         IGlobals globals = getCore().getGlobals();
-        int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
-        boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
+        IRegFile regfile = globals.getRegisterFile();
 
         EnumOpcode opcode = ins.getOpcode();
         boolean oper0src = opcode.oper0IsSource();
@@ -232,24 +230,19 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         if (oper0src) {
             int oper0reg = oper0.getRegisterNumber();
-//            if (oper0reg >= 0) System.out.println("R" + oper0reg + " invalid=" + reginvalid[oper0reg]);
-            if (oper0reg >= 0 && !reginvalid[oper0reg]) {
-//                System.out.println("Fetching R" + oper0reg + "=" + 
-//                        regfile[oper0reg] + " for oper0");
-                oper0.setValue(regfile[oper0reg]);
+            if (oper0reg >= 0 && regfile.isValid(oper0reg)) {
+                oper0.lookUpFromRegisterFile(regfile);
             }
         }
         
         int src1reg = src1.getRegisterNumber();
-//        if (src1reg >= 0) System.out.println("R" + src1reg + " invalid=" + reginvalid[src1reg]);
-        if (src1reg >=0 && !reginvalid[src1reg]) {
-            src1.setValue(regfile[src1reg]);
+        if (src1reg >=0 && regfile.isValid(src1reg)) {
+            src1.lookUpFromRegisterFile(regfile);
         }
         
         int src2reg = src2.getRegisterNumber();
-//        if (src2reg >= 0) System.out.println("R" + src2reg + " invalid=" + reginvalid[src2reg]);
-        if (src2reg >= 0 && !reginvalid[src2reg]) {
-            src2.setValue(regfile[src2reg]);
+        if (src2reg >= 0 && regfile.isValid(src2reg)) {
+            src2.lookUpFromRegisterFile(regfile);
         }
     }
     
@@ -328,7 +321,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
                     // If the register number was found and there is a valid
                     // result, go ahead and get the value.
                     int value = core.getResultValue(srcFoundIn);
-                    operArray[sn].setValue(value);
+                    boolean isfloat = core.isResultFloat(srcFoundIn);
+                    operArray[sn].setValue(value, isfloat);
 
                     if (CpuSimulator.printForwarding) {
                         System.out.printf("Forwarding R%d=%d from %s to Decode operand %d\n", srcRegNum,
@@ -366,6 +360,11 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
      * and they are kept by modifying the ORIGINAL input latch, rather than
      * a duplicate.
      * 
+     * Once forwarded values are retrieved, the forwarding flags 
+     * (forward0, forward1, forward2) are deleted from the input latch so that
+     * calling doPostedForwarding again on the same latch won't retrieve
+     * any bad data from the wrong time.
+     * 
      * @param input 
      */
     @Override
@@ -379,7 +378,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         if (input.hasProperty("forward0")) {
             String pipe_reg_name = input.getPropertyString("forward0");
             int oper0 = core.getResultValue(pipe_reg_name);
-            ins.getOper0().setValue(oper0);
+            boolean isfloat = core.isResultFloat(pipe_reg_name);
+            ins.getOper0().setValue(oper0, isfloat);
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to oper0 of %s\n", 
                         ins.getOper0().getRegisterNumber(), oper0,
@@ -394,7 +394,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         if (input.hasProperty("forward1")) {
             String pipe_reg_name = input.getPropertyString("forward1");
             int source1 = core.getResultValue(pipe_reg_name);
-            ins.getSrc1().setValue(source1);
+            boolean isfloat = core.isResultFloat(pipe_reg_name);
+            ins.getSrc1().setValue(source1, isfloat);
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to src1 of %s\n", 
                         ins.getSrc1().getRegisterNumber(), source1,
@@ -409,7 +410,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         if (input.hasProperty("forward2")) {
             String pipe_reg_name = input.getPropertyString("forward2");
             int source2 = core.getResultValue(pipe_reg_name);
-            ins.getSrc2().setValue(source2);
+            boolean isfloat = core.isResultFloat(pipe_reg_name);
+            ins.getSrc2().setValue(source2, isfloat);
             if (CpuSimulator.printForwarding) {
                 System.out.printf("Forwarding R%d=%d from %s to src2 of %s\n", 
                         ins.getSrc2().getRegisterNumber(), source2,

@@ -136,7 +136,13 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
             }
             cycle_number_slave = getCycleNumber();
         }
-        if (slave_stalled) getStageBefore().addStatusWord("OutputStall");
+        if (slave_stalled) {
+            String pregname = getShortName();
+            if (pregname.length()>=2 && Character.isLowerCase(pregname.charAt(0)) && Character.isUpperCase(pregname.charAt(1))) {
+                pregname = pregname.substring(1);
+            }
+            getStageBefore().addStatusWord("OutputStall(" + pregname + ")");
+        }
         return slave_stalled;
     }
     
@@ -248,6 +254,10 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
         return slave.getResultValue();
     }
     
+    @Override
+    public boolean isResultFloat() {
+        return slave.isResultFloat();
+    }
 
     public void markExternalOutput() {
         IFunctionalUnit parent = (IFunctionalUnit)getParent();
@@ -318,4 +328,5 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
     public Latch invalidLatch() {
         return invalid;
     }
+
 }

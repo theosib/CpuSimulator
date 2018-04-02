@@ -12,6 +12,7 @@ import java.util.Map;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import voidtypes.VoidInstruction;
+import voidtypes.VoidRegister;
 
 /**
  * Generic latch class.  A pipeline register will dynamically create
@@ -145,6 +146,25 @@ public class Latch extends PropertiesContainer {
             return -1;
         }        
     }
+
+    public String getResultRegName() {
+        if (invalid) return "invalid";
+        if (ins.getOpcode().needsWriteback()) {
+            return ins.getOper0().getRegisterName();
+        } else {
+            return "none";
+        }        
+    }
+    
+    public String getResultValueAsString() {
+        if (isResultFloat()) {
+            float value = getResultValueAsFloat();
+            return Float.toString(value);
+        } else {
+            int value = getResultValue();
+            return Integer.toString(value);
+        }
+    }
     
     /**
      * Determine if this latch has both a target register and a result value
@@ -157,6 +177,11 @@ public class Latch extends PropertiesContainer {
         return hasProperty(RESULT_VALUE);
     }
     
+    public boolean isResultFloat() {
+        if (invalid || getResultRegNum() < 0) return false;
+        return hasProperty(RESULT_FLOAT);
+    }
+    
     /**
      * Fetch result value, if any.
      * @return
@@ -164,6 +189,11 @@ public class Latch extends PropertiesContainer {
     public int getResultValue() {
         if (invalid) return 0;
         return getPropertyInteger(RESULT_VALUE);
+    }
+
+    public float getResultValueAsFloat() {
+        if (invalid) return 0;
+        return Float.intBitsToFloat(getPropertyInteger(RESULT_VALUE));
     }
     
     /**
@@ -174,8 +204,30 @@ public class Latch extends PropertiesContainer {
     public void setResultValue(int value) {
         if (invalid) return;
         setProperty(RESULT_VALUE, value);
+        deleteProperty(RESULT_FLOAT);
     }
     
+    /**
+     * Store computed result value, a float encoded as an int
+     * 
+     * @param value Computed value to be written to an arch/phys register.
+     */
+    public void setResultFloatValue(int value) {
+        if (invalid) return;
+        setProperty(RESULT_VALUE, value);
+        setProperty(RESULT_FLOAT, true);
+    }
+    
+    /**
+     * Store computed result value, a float encoded as an int
+     * 
+     * @param value Computed value to be written to an arch/phys register.
+     */
+    public void setResultFloatValue(float value) {
+        if (invalid) return;
+        setProperty(RESULT_VALUE, Float.floatToRawIntBits(value));
+        setProperty(RESULT_FLOAT, true);
+    }
     
     /**
      * Find out if this latch contains no valid data

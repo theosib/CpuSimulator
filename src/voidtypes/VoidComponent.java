@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import utilitytypes.IComponent;
 import utilitytypes.ICpuCore;
 import utilitytypes.IModule;
@@ -42,4 +43,9 @@ public class VoidComponent implements IComponent {
 
     @Override
     public int getDepth() { return 0; }
+
+    @Override
+    public String getShortName() {
+        return ComponentBase.getOnlyCaps(getLocalName(), "");
+    }
 }

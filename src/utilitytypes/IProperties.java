@@ -16,8 +16,9 @@ import java.util.Set;
 public interface IProperties {
     // Some common property names
     public static final String RESULT_VALUE = "result_value";
-    public static final String REGISTER_FILE = "register_file";
-    public static final String REGISTER_INVALID = "register_invalid";
+    public static final String RESULT_FLOAT = "result_float";
+//    public static final String REGISTER_FILE = "register_file";
+//    public static final String REGISTER_INVALID = "register_invalid";
     public static final String PROGRAM_COUNTER = "program_counter";
     public static final String MAIN_MEMORY = "main_memory";
     

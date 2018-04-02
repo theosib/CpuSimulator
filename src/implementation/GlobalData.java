@@ -12,6 +12,8 @@ import java.util.Set;
 import utilitytypes.IGlobals;
 import tools.InstructionSequence;
 import utilitytypes.IProperties;
+import utilitytypes.IRegFile;
+import utilitytypes.RegisterFile;
 
 /**
  * As a design choice, some data elements that are accessed by multiple
@@ -20,7 +22,9 @@ import utilitytypes.IProperties;
  * @author 
  */
 public class GlobalData extends PropertiesContainer implements IGlobals {
-    public InstructionSequence program;
+    protected InstructionSequence program;
+    protected IRegFile regfile;
+    
 
     @Override
     public void reset() {
@@ -36,8 +40,8 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
     @Override
     public void setup() {
         this.setProperty(PROGRAM_COUNTER, (int)0);
-        this.setProperty(REGISTER_FILE, new int[32]);
-        this.setProperty(REGISTER_INVALID, new boolean[32]);
+//        this.setProperty(REGISTER_FILE, new int[32]);
+//        this.setProperty(REGISTER_INVALID, new boolean[32]);
         this.setProperty(MAIN_MEMORY, new int[1024]);
         this.setProperty("running", false);
         this.setProperty("next_program_counter_nobranch", (int)0);
@@ -45,6 +49,7 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
         this.setProperty("current_branch_state", BRANCH_STATE_NULL);
         this.setProperty("next_branch_state_fetch", BRANCH_STATE_NULL);
         this.setProperty("branch_state_decode", BRANCH_STATE_NULL);
+        this.regfile = new RegisterFile(32);
     }
 
     @Override
@@ -59,5 +64,10 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
     
     public GlobalData() {
         setup();
+    }
+
+    @Override
+    public IRegFile getRegisterFile() {
+        return regfile;
     }
 }

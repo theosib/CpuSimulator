@@ -46,7 +46,7 @@ public enum EnumOpcode {
     
     
     ADD, SUB, AND, OR, SHL, ASR, LSR, XOR, CMP, ROL, ROR,
-    MUL, MULU, DIV, MOD,
+    MUL, DIV, MOD,
     BRA, JMP, CALL, 
     LOAD, STORE, MOVC, OUT,
     HALT, NOP, INVALID, NULL,
@@ -65,10 +65,10 @@ public enum EnumOpcode {
     
     static final EnumSet<EnumOpcode> writebackSet = 
             EnumSet.of(ADD, SUB, AND, OR, 
-            SHL, ASR, LSR, XOR, CMP, ROL, ROR, MUL, MULU, DIV, MOD,
-            CALL, LOAD, MOVC);
+            SHL, ASR, LSR, XOR, CMP, ROL, ROR, MUL, DIV, MOD,
+            CALL, LOAD, MOVC, FADD, FSUB, FMUL, FDIV);
     static final EnumSet<EnumOpcode> oper0SourceSet = 
-            EnumSet.of(BRA, OUT, STORE, JMP);
+            EnumSet.of(BRA, OUT, STORE, JMP, FOUT);
     static final EnumSet<EnumOpcode> branchSet = 
             EnumSet.of(BRA, JMP, CALL);
     static final EnumSet<EnumOpcode> memorySet = 

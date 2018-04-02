@@ -74,6 +74,10 @@ public class MyALU {
                 // would be Memory.
                 System.out.println("@@output: " + oper0);
                 break;
+                
+            case FOUT:
+                System.out.println("@@output: " + Float.intBitsToFloat(oper0));
+                break;
         }
         
         return result;

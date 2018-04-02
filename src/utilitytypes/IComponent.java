@@ -18,6 +18,11 @@ public interface IComponent {
     String getLocalName();
     
     /**
+     * @return a highly abbreviated version of the component name
+     */
+    String getShortName();
+    
+    /**
      * @return Reference to parent in the hierarchy
      */
     IModule getParent();

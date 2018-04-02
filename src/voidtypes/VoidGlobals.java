@@ -8,6 +8,7 @@ package voidtypes;
 import baseclasses.InstructionBase;
 import tools.InstructionSequence;
 import utilitytypes.IGlobals;
+import utilitytypes.IRegFile;
 
 /**
  *
@@ -31,4 +32,9 @@ public class VoidGlobals extends VoidProperties implements IGlobals {
 
     @Override
     public void loadProgram(InstructionSequence seq) {}
+
+    @Override
+    public IRegFile getRegisterFile() {
+        return VoidRegFile.getVoidRegFile();
+    }
 }

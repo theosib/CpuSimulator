@@ -19,6 +19,7 @@ import utilitytypes.ICpuCore;
 import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import static utilitytypes.IProperties.*;
+import utilitytypes.IRegFile;
 import utilitytypes.Operand;
 
 /**
@@ -233,13 +234,13 @@ public class AllMyStages {
             
             EnumOpcode opcode = ins.getOpcode();
             Operand oper0 = ins.getOper0();
-            boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
+            IRegFile regfile = globals.getRegisterFile();
             
             // This code is to prevent having more than one of the same regster
             // as a destiation register in the pipeline at the same time.
             if (opcode.needsWriteback()) {
                 int oper0reg = oper0.getRegisterNumber();
-                if (reginvalid[oper0reg]) {
+                if (regfile.isInvalid(oper0reg)) {
                     //System.out.println("Stall because dest R" + oper0reg + " is invalid");
                     setResourceWait("DestR"+oper0reg);
                     return;
@@ -260,13 +261,22 @@ public class AllMyStages {
             int value0 = 0;
             int value1 = 0;
             
+            
+            // Find out whether or not DecodeToExecute can accept work.
+            // We do this here for CALL, which can't be allowed to do anything
+            // unless it can pass along its work to Writeback, and we pass
+            // the call return address through Execute.
+            int d2e_output_num = lookupOutput("DecodeToExecute");
+            Latch d2e_output = this.newOutput(d2e_output_num);
+            
+            
             switch (opcode) {
                 case BRA:
                     if (!oper0.hasValue()) {
                         // If we do not already have a value for the branch
                         // condition register, must stall.
 //                        System.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
-                        this.setResourceWait("R"+oper0.getRegisterNumber());
+                        this.setResourceWait(oper0.getRegisterName());
                         // Nothing else to do.  Bail out.
                         return;
                     }
@@ -308,7 +318,7 @@ public class AllMyStages {
                             // operand is valid.
                             if (!src1.hasValue()) {
 //                                System.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
-                                this.setResourceWait("R" + src1.getRegisterNumber());
+                                this.setResourceWait(src1.getRegisterName());
                                 // Nothing else to do.  Bail out.
                                 return;
                             }
@@ -346,7 +356,7 @@ public class AllMyStages {
                             // If branching to address in register, make sure
                             // operand is valid.
 //                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
-                            this.setResourceWait("R" + oper0.getRegisterNumber());
+                            this.setResourceWait(oper0.getRegisterName());
                             // Nothing else to do.  Bail out.
                             return;
                         }
@@ -364,7 +374,40 @@ public class AllMyStages {
                     return;
                     
                 case CALL:
-                    // Not implemented yet
+                    // CALL is an inconditionally taken branch.  If the
+                    // label is valid, then take its address.  Otherwise
+                    // its src1 contains the target address.
+                    if (ins.getLabelTarget().isNull()) {
+                        if (!src1.hasValue()) {
+                            // If branching to address in register, make sure
+                            // operand is valid.
+//                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
+                            this.setResourceWait(src1.getRegisterName());
+                            // Nothing else to do.  Bail out.
+                            return;
+                        }
+                        
+                        value1 = src1.getValue();
+                    } else {
+                        value1 = ins.getLabelTarget().getAddress();
+                    }
+                    
+                    // CALL also has a destination register, which is oper0.
+                    // Before we can resolve the branch, we have to make sure
+                    // that the return address can be passed to Writeback
+                    // through Execute.
+                    if (!d2e_output.canAcceptWork()) return;
+                    
+                    // To get the return address into Writeback, we will
+                    // replace the instruction's source operands with the
+                    // address of the instruction and a constant 1.
+                    
+                    
+                    globals.setProperty("next_program_counter_takenbranch", value0);
+                    globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    
+                    // Having completed execution of the JMP instruction, we must
+                    // explicitly indicate that it has been consumed.
                     input.consume();
                     return;
             }
@@ -412,7 +455,7 @@ public class AllMyStages {
                     // If any source operand is not available
                     // now or on the next cycle, then stall.
                     //System.out.println("Stall because no " + propname);
-                    this.setResourceWait("R" + srcRegNum);
+                    this.setResourceWait(operArray[sn].getRegisterName());
                     // Nothing else to do.  Bail out.
                     return;
                 }
@@ -426,7 +469,8 @@ public class AllMyStages {
             // Mark the destination register invalid
             if (opcode.needsWriteback()) {
                 int oper0reg = oper0.getRegisterNumber();
-                reginvalid[oper0reg] = true;
+                System.out.println("Marking R" + oper0reg + " invalid");
+                regfile.markInvalid(oper0reg);
             }            
             
             // Copy the forward# properties
@@ -526,8 +570,7 @@ public class AllMyStages {
         public void compute() {
             IGlobals globals = (GlobalData)getCore().getGlobals();
             // Get register file and valid flags from globals
-            int[] regfile = globals.getPropertyIntArray(REGISTER_FILE);
-            boolean[] reginvalid = globals.getPropertyBooleanArray(REGISTER_INVALID);
+            IRegFile regfile = globals.getRegisterFile();
             
             // Writeback has multiple inputs, so we just loop over them
             int num_inputs = this.getInputRegisters().size();
@@ -542,17 +585,19 @@ public class AllMyStages {
                 if (ins.getOpcode().needsWriteback()) {
                     // By definition, oper0 is a register and the destination.
                     // Get its register number;
-                    int regnum = ins.getOper0().getRegisterNumber();
+                    Operand op = ins.getOper0();
+                    String regname = op.getRegisterName();
+                    int regnum = op.getRegisterNumber();
                     int value = input.getResultValue();
+                    boolean isfloat = input.isResultFloat();
 
                     if (CpuSimulator.printRegWrite) {
-                        System.out.println("Storing " + value + " to R" + regnum);
+                        System.out.println("Storing " + input.getResultValueAsString() + " to " + regname);
                     }
                     
-                    addStatusWord("R" + regnum + "=" + value);
+                    addStatusWord(regname + "=" + value);
 
-                    regfile[regnum] = input.getResultValue();
-                    reginvalid[regnum] = false;
+                    regfile.setValue(regnum, value, isfloat);
                 }
 
                 if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {

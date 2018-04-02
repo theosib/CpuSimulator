@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -143,5 +144,9 @@ public class VoidModule extends VoidComponent implements IModule {
 
     @Override
     public void addForwardingTarget(String name) {}
-    
+
+    @Override
+    public String getShortName() {
+        return ComponentBase.getOnlyCaps(getLocalName(), "m");
+    }    
 }

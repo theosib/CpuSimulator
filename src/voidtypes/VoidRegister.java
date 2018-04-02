@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import baseclasses.Latch;
 import baseclasses.PipelineRegister;
 import java.util.Collections;
@@ -120,4 +121,12 @@ public class VoidRegister extends VoidComponent implements IPipeReg {
 
     @Override
     public void markExternalOutput() {}
+    
+    @Override
+    public String getShortName() {
+        return ComponentBase.getOnlyCaps(getLocalName(), "r");
+    }    
+
+    @Override
+    public boolean isResultFloat() { return false; }
 }

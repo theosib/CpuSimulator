@@ -48,7 +48,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         known_stages.add(stage);
         
         int this_order = stage.getTopoOrder();
-        //System.out.println("Stage " + stage.getHierarchicalName() + " has order " + this_order);
+//        System.out.println("Stage " + stage.getHierarchicalName() + " has order " + this_order);
         
         int new_in_order = this_order - 1;
         List<IPipeReg> inputs = stage.getInputRegisters();
@@ -87,6 +87,8 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         stage_topo_order = new ArrayList(known_stages);
         stage_topo_order.sort((IPipeStage a, IPipeStage b) -> b.getTopoOrder() - a.getTopoOrder());
         
+        int[] last_swapped = {-1, -1};
+        
         boolean swapped = true;
         while (swapped) {
             swapped = false;
@@ -108,6 +110,9 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                     IModule pparent = oparent.getParent();
                     if (pparent == null) continue;
                     if (pparent == myparent) {
+//                        System.out.println(me.getHierarchicalName() + " at " + 
+//                                i + " attracted to " +
+//                                oparent.getHierarchicalName() + " at " + j);
                         child_ix = j;
                         break;
                     }
@@ -116,8 +121,14 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
 
                 stage_topo_order.set(i, pr);
                 stage_topo_order.set(i-1, me);
+                if (i-1 == last_swapped[0] && i == last_swapped[1]) break;
+                last_swapped[0] = i-1;
+                last_swapped[1] = i;
+//                System.out.println("Swapping " + me.getHierarchicalName() + " at " + i +
+//                        " with " + pr.getHierarchicalName() + " at " + (i-1));
                 swapped = true;
                 i--;
+                if (i>2) i--;
             }
         }
     }
@@ -205,6 +216,14 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
             throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
         }
         return reg.getResultValue();
+    }
+    
+    public boolean isResultFloat(String pipe_reg_name) {
+        IPipeReg reg = getPipeReg(pipe_reg_name);
+        if (reg == null) {
+            throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
+        }
+        return reg.isResultFloat();
     }
     
     

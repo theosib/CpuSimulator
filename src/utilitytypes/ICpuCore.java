@@ -51,6 +51,12 @@ public interface ICpuCore extends IModule {
      * @return Result value of computation
      */
     public int getResultValue(String pipe_reg_name);
+    
+    /**
+     * @param pipe_reg_name
+     * @return Was the result produced by a floating point operation?
+     */
+    public boolean isResultFloat(String pipe_reg_name);
 
     /**
      * Look up a pipeline register by name and determine if there is or will 

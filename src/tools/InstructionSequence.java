@@ -172,6 +172,13 @@ public class InstructionSequence<T extends InstructionBase> {
     
     private void setLiteralOperand(InstructionBase ins, int operand_num, String field) throws SyntaxError {
         int value = 0;
+        boolean is_float = false;
+        if (field.indexOf('.')>0) {
+            if (field.charAt(0)=='#') field = field.substring(1);
+            float value_f = Float.parseFloat(field);
+            value = Float.floatToRawIntBits(value_f);
+            is_float = true;
+        } else
         if (!Character.isDigit(field.charAt(0))) {
             switch (Character.toUpperCase(field.charAt(0))) {
                 case 'H':
@@ -201,10 +208,10 @@ public class InstructionSequence<T extends InstructionBase> {
                     "First data operand must be a register.",
                     ins.getLineNum());        
             case 1:
-                ins.setSrc1(Operand.newLiteralSource(value));
+                ins.setSrc1(Operand.newLiteralSource(value, is_float));
                 break;
             case 2:
-                ins.setSrc2(Operand.newLiteralSource(value));
+                ins.setSrc2(Operand.newLiteralSource(value, is_float));
                 break;
             default:
                 throw new SyntaxError(ins.getInstructionString(), 
@@ -299,6 +306,9 @@ public class InstructionSequence<T extends InstructionBase> {
             if (field.matches("[Rr]\\d+")) {
                 // Register is 'R' or 'r' prefixing a decimal number
                 setRegisterOperand(ins, num_data_operands, field);
+                num_data_operands++;
+            } else if (field.matches("[0-9]+[.][0-9]+")) {
+                setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("0x[0-9A-Fa-f]+")) {
                 // Hexadecimal literal

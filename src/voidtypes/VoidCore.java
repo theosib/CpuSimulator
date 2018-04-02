@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -63,5 +64,13 @@ public class VoidCore extends VoidModule implements ICpuCore {
 
     @Override
     public void printHierarchy() {}
+    
+    @Override
+    public String getShortName() {
+        return "core";
+    }
+
+    @Override
+    public boolean isResultFloat(String pipe_reg_name) { return false; }
     
 }

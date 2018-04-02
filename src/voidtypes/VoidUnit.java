@@ -5,6 +5,7 @@
  */
 package voidtypes;
 
+import baseclasses.ComponentBase;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,4 +53,8 @@ public class VoidUnit extends VoidModule implements IFunctionalUnit {
     @Override
     public Map<String, IPipeReg> getOutputPipeRegs() { return void_regs; }
     
+    @Override
+    public String getShortName() {
+        return ComponentBase.getOnlyCaps(getLocalName(), "u");
+    }
 }

@@ -7,7 +7,10 @@ package baseclasses;
 
 import utilitytypes.IComponent;
 import utilitytypes.ICpuCore;
+import utilitytypes.IFunctionalUnit;
 import utilitytypes.IModule;
+import utilitytypes.IPipeReg;
+import utilitytypes.IPipeStage;
 
 /**
  *
@@ -22,6 +25,47 @@ public abstract class ComponentBase implements IComponent {
      */
     public String getLocalName() { return name; }
     public String getName() { return getLocalName(); }
+    
+    public static String getOnlyCaps(String str, String prefix) {
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<str.length(); i++) {
+            char c = str.charAt(i);
+            if (Character.isUpperCase(c)) sb.append(c);
+        }
+        String abbr = sb.toString();
+        if (abbr.length() == 0) {
+            if (prefix.length() > 0) {
+                return prefix + "_" + str;
+            } else {
+                return str;
+            }
+        }
+        return prefix + abbr;
+    }
+    
+    public String getShortName() {
+        String name = getLocalName();
+        if (this instanceof IPipeReg) {
+            int to = name.indexOf("To");
+            if (to>=0 && (to+2)<name.length() && Character.isUpperCase(name.charAt(to+2))) {
+                String a = name.substring(0, to);
+                String b = name.substring(to+2);
+                return getOnlyCaps(a, "r") + "2" + getOnlyCaps(b, "");
+            } else {
+                return getOnlyCaps(name, "r");
+            }
+        } else if (this instanceof IPipeStage) {
+            return getOnlyCaps(name, "s");
+        } else if (this instanceof CpuCore) {
+            return getOnlyCaps(name, "");
+        } else if (this instanceof IFunctionalUnit) {
+            return getOnlyCaps(name, "u");
+        } else if (this instanceof IModule) {
+            return getOnlyCaps(name, "m");
+        } else {
+            return getOnlyCaps(name, "");
+        }
+    }
     
     /**
      * @return Reference to parent in the hierarchy
