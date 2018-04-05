@@ -19,6 +19,7 @@ import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import utilitytypes.IRegFile;
+import utilitytypes.Logger;
 import utilitytypes.Operand;
 import voidtypes.VoidLatch;
 
@@ -78,7 +79,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         IPipeReg input = input_regs.get(input_num);
         Latch slave = input.read();
         String doing = slave.ins.toString();
-//        System.out.println("Stage " + getName() + " input " + input.getName() + 
+//        Logger.out.println("Stage " + getName() + " input " + input.getName() + 
 //                " read " + doing);
         return slave;
     }
@@ -87,7 +88,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     public void consumedInput(int input_num) {
         IPipeReg input = input_regs.get(input_num);
         String doing = input.read().ins.toString();
-//        System.out.println("Stage " + getName() + " input " + input.getName() + 
+//        Logger.out.println("Stage " + getName() + " input " + input.getName() + 
 //                " consumed " + doing);
         input_doing.add(doing);
     }
@@ -131,12 +132,12 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     
     @Override
     public void outputWritten(Latch out, int index) {
-//        System.out.println("Stage " + getName() + " output " + out.getName() + 
+//        Logger.out.println("Stage " + getName() + " output " + out.getName() + 
 //                " written with " + out.ins.toString());
         output_doing.add(out.ins.toString());
         if (out.hasResultValue()) {
             String regname = out.getResultRegName();
-            int val = out.getResultValue();
+            String val = out.getResultValueAsString();
             addStatusWord(regname + "=" + val);
         }
     }
@@ -195,7 +196,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         boolean wait = stageWaitingOnResource();
         if (wait) {
-//            System.out.println("Bubbling all outputs of " + getName());
+//            Logger.out.println("Bubbling all outputs of " + getName());
             // Just in case an output has been written, must set all outputs
             // to bubbles if there is a resource wait.
             for (IPipeReg out : output_regs) {
@@ -232,20 +233,36 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             int oper0reg = oper0.getRegisterNumber();
             if (oper0reg >= 0 && regfile.isValid(oper0reg)) {
                 oper0.lookUpFromRegisterFile(regfile);
+                if (CpuSimulator.printForwarding) {
+                    Logger.out.printf("Reading %s=%s from regfile for %s oper0\n", 
+                            oper0.getRegisterName(), oper0.getValueAsString(),
+                            getHierarchicalName());
+                }
             }
         }
         
         int src1reg = src1.getRegisterNumber();
         if (src1reg >=0 && regfile.isValid(src1reg)) {
             src1.lookUpFromRegisterFile(regfile);
+            if (CpuSimulator.printForwarding) {
+                Logger.out.printf("Reading %s=%s from regfile for %s src1\n", 
+                        src1.getRegisterName(), src1.getValueAsString(),
+                        getHierarchicalName());
+            }
         }
         
         int src2reg = src2.getRegisterNumber();
         if (src2reg >= 0 && regfile.isValid(src2reg)) {
             src2.lookUpFromRegisterFile(regfile);
+            if (CpuSimulator.printForwarding) {
+                Logger.out.printf("Reading %s=%s from regfile for %s src2\n", 
+                        src2.getRegisterName(), src2.getValueAsString(),
+                        getHierarchicalName());
+            }
         }
     }
     
+    public static final String[] operNames = {"oper0", "src1", "src2"};
     
     /**
      * When using this method, be sure to make a duplicate of the input Latch
@@ -267,7 +284,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         Set<String> fwdSources = core.getForwardingSources();
 //        for (String s : fwdSources) {
-//            System.out.println(s);
+//            Logger.out.println(s);
 //        }
 
         EnumOpcode opcode = ins.getOpcode();
@@ -295,6 +312,9 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             if (srcRegNum < 0) continue;
             // Skip any operands that already have values
             if (operArray[sn].hasValue()) continue;
+            Operand oper = operArray[sn];
+            String srcRegName = oper.getRegisterName();
+            String operName = operNames[sn];
             
             String srcFoundIn = null;
             boolean next_cycle = false;
@@ -325,8 +345,10 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
                     operArray[sn].setValue(value, isfloat);
 
                     if (CpuSimulator.printForwarding) {
-                        System.out.printf("Forwarding R%d=%d from %s to Decode operand %d\n", srcRegNum,
-                                value, srcFoundIn, sn);
+                        Logger.out.printf("Forwarding %s=%s from %s to %s of %s\n", 
+                                srcRegName, oper.getValueAsString(),
+                                srcFoundIn, operName,
+                                getHierarchicalName());
                     }
                 } else {
                     // Post forwarding for the next stage on the next cycle by
@@ -339,8 +361,9 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
                     input.setProperty(propname, srcFoundIn);
                     
 //                    if (CpuSimulator.printForwarding) {
-//                        System.out.printf("Scheduling forward R%d from %s to operand %d next stage\n", srcRegNum,
-//                                srcFoundIn, sn);
+//                        Logger.out.printf("Posting forward %s from %s to %s next stage\n", 
+//                                srcRegName,
+//                                srcFoundIn, operName);
 //                    }
                 }
             }
@@ -377,12 +400,13 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         if (input.hasProperty("forward0")) {
             String pipe_reg_name = input.getPropertyString("forward0");
-            int oper0 = core.getResultValue(pipe_reg_name);
+            int oper0val = core.getResultValue(pipe_reg_name);
             boolean isfloat = core.isResultFloat(pipe_reg_name);
-            ins.getOper0().setValue(oper0, isfloat);
+            Operand oper0 = ins.getOper0();
+            oper0.setValue(oper0val, isfloat);
             if (CpuSimulator.printForwarding) {
-                System.out.printf("Forwarding R%d=%d from %s to oper0 of %s\n", 
-                        ins.getOper0().getRegisterNumber(), oper0,
+                Logger.out.printf("Forwarding %s=%s from %s to oper0 of %s\n", 
+                        oper0.getRegisterName(), oper0.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }
             
@@ -395,10 +419,11 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             String pipe_reg_name = input.getPropertyString("forward1");
             int source1 = core.getResultValue(pipe_reg_name);
             boolean isfloat = core.isResultFloat(pipe_reg_name);
-            ins.getSrc1().setValue(source1, isfloat);
+            Operand src1 = ins.getSrc1();
+            src1.setValue(source1, isfloat);
             if (CpuSimulator.printForwarding) {
-                System.out.printf("Forwarding R%d=%d from %s to src1 of %s\n", 
-                        ins.getSrc1().getRegisterNumber(), source1,
+                Logger.out.printf("Forwarding %s=%s from %s to src1 of %s\n", 
+                        src1.getRegisterName(), src1.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }
 
@@ -411,10 +436,11 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             String pipe_reg_name = input.getPropertyString("forward2");
             int source2 = core.getResultValue(pipe_reg_name);
             boolean isfloat = core.isResultFloat(pipe_reg_name);
-            ins.getSrc2().setValue(source2, isfloat);
+            Operand src2 = ins.getSrc2();
+            src2.setValue(source2, isfloat);
             if (CpuSimulator.printForwarding) {
-                System.out.printf("Forwarding R%d=%d from %s to src2 of %s\n", 
-                        ins.getSrc2().getRegisterNumber(), source2,
+                Logger.out.printf("Forwarding %s=%s from %s to src2 of %s\n", 
+                        src2.getRegisterName(), src2.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }
 
@@ -433,7 +459,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     public void evaluate() {
         ICpuCore core = getCore();
         if (my_cycle_number == core.getCycleNumber()) return;
-//        System.out.println("Running evaluate for " + getName());
+//        Logger.out.println("Running evaluate for " + getName());
 
         input_doing = new HashSet<>();
         output_doing = new HashSet<>();

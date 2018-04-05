@@ -56,5 +56,11 @@ public class VoidRegFile implements IRegFile {
 
     @Override
     public void markFloat(int index, boolean is_float) {}
+
+    @Override
+    public void setRegisterImmediately(int index, int value, boolean is_invalid, boolean is_float) {}
+
+    @Override
+    public void advanceClock() {}
     
 }

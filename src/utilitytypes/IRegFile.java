@@ -54,7 +54,18 @@ public interface IRegFile {
     public float getValueAsFloat(int index);
     
     /**
+     * Modify a register without clock cycle delay.  Probably don't need this.
+     * @param index
+     * @param value
+     * @param is_invalid
+     * @param is_float
+     */
+    public void setRegisterImmediately(int index, int value, 
+            boolean is_invalid, boolean is_float);
+    
+    /**
      * Set register value without changing any flags.
+     * Setting is queued to take effect on next clock cycle.
      * @param index
      * @param value
      */
@@ -62,6 +73,7 @@ public interface IRegFile {
     
     /**
      * Set register value, marking it as valid and not a float
+     * Setting is queued to take effect on next clock cycle.
      * @param index
      * @param value
      */
@@ -69,6 +81,7 @@ public interface IRegFile {
     
     /**
      * Set register value, marking it as valid and a float.
+     * Setting is queued to take effect on next clock cycle.
      * @param index
      * @param value Floating point value encoded in an int.
      */
@@ -76,6 +89,7 @@ public interface IRegFile {
 
     /**
      * Set register value, marking it as valid and a float.
+     * Setting is queued to take effect on next clock cycle.
      * @param index
      * @param value Floating point value encoded in as a float.
      */
@@ -84,10 +98,15 @@ public interface IRegFile {
     /**
      * Sets a register value and marks it as valid.  Also sets the "is float"
      * flag to the value of the is_float argument.
+     * Setting is queued to take effect on next clock cycle.
      * @param index
      * @param value Int or float value encoded as an int
      * @param is_float Is the value actually an encoded float?
      */
     public void setValue(int index, int value, boolean is_float);
     
+    /**
+     * Apply all of the 'set value' operations queued up.
+     */
+    public void advanceClock();
 }

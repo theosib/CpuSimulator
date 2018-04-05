@@ -149,4 +149,7 @@ public class VoidModule extends VoidComponent implements IModule {
     public String getShortName() {
         return ComponentBase.getOnlyCaps(getLocalName(), "m");
     }    
+
+    @Override
+    public void clockProperties() {}
 }

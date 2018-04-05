@@ -20,6 +20,7 @@ import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import utilitytypes.IProperties;
+import utilitytypes.Logger;
 
 /**
  * This is a base class that can be used to build a CPU simulator.  It contains
@@ -48,7 +49,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         known_stages.add(stage);
         
         int this_order = stage.getTopoOrder();
-//        System.out.println("Stage " + stage.getHierarchicalName() + " has order " + this_order);
+//        Logger.out.println("Stage " + stage.getHierarchicalName() + " has order " + this_order);
         
         int new_in_order = this_order - 1;
         List<IPipeReg> inputs = stage.getInputRegisters();
@@ -110,7 +111,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                     IModule pparent = oparent.getParent();
                     if (pparent == null) continue;
                     if (pparent == myparent) {
-//                        System.out.println(me.getHierarchicalName() + " at " + 
+//                        Logger.out.println(me.getHierarchicalName() + " at " + 
 //                                i + " attracted to " +
 //                                oparent.getHierarchicalName() + " at " + j);
                         child_ix = j;
@@ -124,7 +125,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 if (i-1 == last_swapped[0] && i == last_swapped[1]) break;
                 last_swapped[0] = i-1;
                 last_swapped[1] = i;
-//                System.out.println("Swapping " + me.getHierarchicalName() + " at " + i +
+//                Logger.out.println("Swapping " + me.getHierarchicalName() + " at " + i +
 //                        " with " + pr.getHierarchicalName() + " at " + (i-1));
                 swapped = true;
                 i--;
@@ -153,10 +154,9 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
             int n = stage_order.size();
             for (int i=n-1; i>=0; i--) {
                 IPipeStage stage = stage_order.get(i);
-                System.out.printf("%-30s: %-40s %s\n", stage.getHierarchicalName(), stage.getActivity(),
+                Logger.out.printf("%-30s: %-40s %s\n", stage.getHierarchicalName(), stage.getActivity(),
                         stage.getStatus());
             }
-            System.out.println();        
         }        
         
         // Tell every pipeline register to atomicaly move its input to its 
@@ -164,6 +164,12 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         for (IPipeReg reg : flattened_registers.values()) {
             reg.advanceClock();
         }
+        
+        // We use the clocked properties feature on globals and properties
+        // of submodules
+        clockProperties();
+        
+        Logger.out.advanceClock();
     }    
 
     Set<String> forwarding_sources = new HashSet<>();
@@ -171,9 +177,9 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     
     @Override
     public void addForwardingSource(String name) {
-//        System.out.println("addForwardingSource");
-//        System.out.println(name);
-//        System.out.println(forwarding_sources);
+//        Logger.out.println("addForwardingSource");
+//        Logger.out.println(name);
+//        Logger.out.println(forwarding_sources);
         forwarding_sources.add(name);
     }
 
@@ -206,7 +212,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
             throw new RuntimeException("No such forwarding source register " + pipe_reg_name);
         }
         IPipeReg.EnumForwardingStatus stat = reg.matchForwardingRegister(regnum);
-//        System.out.println("Got status " + stat);
+//        Logger.out.println("Got status " + stat);
         return stat;
     }
     @Override
@@ -281,7 +287,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 String col0 = (j>=split0.length) ? "" : split0[j];
                 String col1 = (j==0) ? cols[1] : "";
                 String col2 = (j>=split2.length) ? "" : split2[j];
-                System.out.printf("%-" + maxcol[0] + "s %s %-" + maxcol[1] + "s %s %-" + maxcol[2] + "s\n", 
+                Logger.out.printf("%-" + maxcol[0] + "s %s %-" + maxcol[1] + "s %s %-" + maxcol[2] + "s\n", 
                         col0, arrow, col1, arrow, col2);
             }
         }

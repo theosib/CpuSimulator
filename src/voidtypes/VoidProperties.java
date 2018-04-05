@@ -94,5 +94,14 @@ public class VoidProperties implements IProperties {
     
     @Override
     public List<String> toStringList() { return strlist; }
+
+    @Override
+    public void setClockedProperty(String name, Object val) {}
+
+    @Override
+    public void advanceClock() {}
+
+    @Override
+    public void deleteClockedProperty(String name) {}
     
 }

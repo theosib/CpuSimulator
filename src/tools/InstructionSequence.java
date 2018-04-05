@@ -24,8 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import utilitytypes.Logger;
 
 /**
  * This class serves as both a parser for assembly language programs and
@@ -307,7 +306,7 @@ public class InstructionSequence<T extends InstructionBase> {
                 // Register is 'R' or 'r' prefixing a decimal number
                 setRegisterOperand(ins, num_data_operands, field);
                 num_data_operands++;
-            } else if (field.matches("[0-9]+[.][0-9]+")) {
+            } else if (field.matches("[-]?[0-9]+[.][0-9]+")) {
                 setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("0x[0-9A-Fa-f]+")) {
@@ -318,7 +317,7 @@ public class InstructionSequence<T extends InstructionBase> {
                 // Hexadecimal literal
                 setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
-            } else if (field.matches("[bBoOdD#]?[0-9]+")) {
+            } else if (field.matches("[bBoOdD#]?[-]?[0-9]+")) {
                 // Decimal, octal, or binary literal
                 // (TODO:  Make sure octals don't use 8 and 9; make sure
                 // binary uses only 0 and 1.)
@@ -421,8 +420,8 @@ public class InstructionSequence<T extends InstructionBase> {
         } catch (SyntaxError ex) {
             System.err.println(ex.getMessage());
         }
-        System.err.flush();
-        System.out.flush();
+//        System.err.flush();
+//        Logger.out.flush();
     }
     
     /**
@@ -432,7 +431,7 @@ public class InstructionSequence<T extends InstructionBase> {
      * @throws IOException
      */
     public void loadFile(File f) throws IOException {
-        System.out.println("Loading file: " + f.getCanonicalPath());
+        Logger.out.println("Loading file: " + f.getCanonicalPath());
         loadFile(new BufferedReader(new InputStreamReader(new FileInputStream(f))));
     }
     
@@ -465,7 +464,7 @@ public class InstructionSequence<T extends InstructionBase> {
      * Print out the loaded program to standard out.
      */
     public void printProgram() {
-        printProgram(System.out);
+        printProgram(Logger.out);
     }
     
     /**

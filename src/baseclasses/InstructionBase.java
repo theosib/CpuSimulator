@@ -133,28 +133,28 @@ public class InstructionBase {
         
         if (!oper0.isNull()) {
             if (oper0.isRegister()) {
-                sb.append(" R").append(oper0.getRegisterNumber());
-                if (oper0.hasValue()) sb.append('=').append(oper0.getValue());
+                sb.append(" ").append(oper0.getRegisterName());
+                if (oper0.hasValue()) sb.append('=').append(oper0.getValueAsString());
             } else {
-                sb.append(' ').append(oper0.getValue());
+                sb.append(' ').append(oper0.getValueAsString());
             }
         }
         
         if (!src1.isNull()) {
             if (src1.isRegister()) {
-                sb.append(" R").append(src1.getRegisterNumber());
-                if (src1.hasValue()) sb.append('=').append(src1.getValue());
+                sb.append(" ").append(src1.getRegisterName());
+                if (src1.hasValue()) sb.append('=').append(src1.getValueAsString());
             } else {
-                sb.append(' ').append(src1.getValue());
+                sb.append(' ').append(src1.getValueAsString());
             }
         }
 
         if (!src2.isNull()) {
             if (src2.isRegister()) {
-                sb.append(" R").append(src2.getRegisterNumber());
-                if (src2.hasValue()) sb.append('=').append(src2.getValue());
+                sb.append(" ").append(src2.getRegisterName());
+                if (src2.hasValue()) sb.append('=').append(src2.getValueAsString());
             } else {
-                sb.append(' ').append(src2.getValue());
+                sb.append(' ').append(src2.getValueAsString());
             }
         }
         

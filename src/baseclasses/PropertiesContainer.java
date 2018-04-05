@@ -5,6 +5,7 @@
  */
 package baseclasses;
 
+import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import utilitytypes.IProperties;
+import utilitytypes.Logger;
 
 /**
  * Genetic container of properties of various data types, indexed by String
@@ -22,6 +24,7 @@ import utilitytypes.IProperties;
  */
 public class PropertiesContainer implements IProperties {
     protected Map<String,Object> properties;
+    protected Map<String,Object> clocked_properties;
     
     /**
      * For diagnostic purposes
@@ -42,8 +45,8 @@ public class PropertiesContainer implements IProperties {
      */
     @Override
     public void clear() {
-        if (properties == null) return;
-        properties.clear();
+        if (properties != null) properties.clear();
+        if (clocked_properties != null) clocked_properties.clear();
     }
 
     protected void alloc() {
@@ -51,6 +54,13 @@ public class PropertiesContainer implements IProperties {
             properties = new HashMap<>();
         }
     }
+    
+    protected void alloc_clocked() {
+        if (clocked_properties == null) {
+            clocked_properties = new HashMap<>();
+        }
+    }
+
     
     /**
      * @return Set of property names
@@ -90,12 +100,32 @@ public class PropertiesContainer implements IProperties {
         alloc();
         properties.put(name, val);
     }
+
+    /**
+     * Store given value into container under the given name.
+     * 
+     * @param name
+     * @param val
+     */
+    @Override
+    public void setClockedProperty(String name, Object val) {
+        alloc_clocked();
+        clocked_properties.put(name, val);
+    }
+    
     
     @Override
     public void deleteProperty(String name) {
         if (properties == null) return;
         properties.remove(name);
     }
+    
+    @Override
+    public void deleteClockedProperty(String name) {
+        alloc_clocked();
+        clocked_properties.put(name, DELETE);
+    }
+
     
     /**
      * Fetches the specified property by name, returning it as an Integer.
@@ -265,5 +295,29 @@ public class PropertiesContainer implements IProperties {
     public int numProperties() {
         if (properties == null) return 0;
         return properties.size();
+    }
+
+    @Override
+    public void advanceClock() {
+        if (clocked_properties == null) return;
+        alloc();
+        for (Map.Entry<String,Object> ent : clocked_properties.entrySet()) {
+            Object value = ent.getValue();
+            if (CpuSimulator.printPropertyUpdates) {
+                if (value == null) {
+                    Logger.out.println(ent.getKey() + " <- null");
+                } else if (value == DELETE) {
+                    Logger.out.println(ent.getKey() + " deleted");
+                } else {
+                    Logger.out.println(ent.getKey() + " <- " + ent.getValue());
+                }
+            }
+            if (value == DELETE) {
+                properties.remove(ent.getKey());
+            } else {
+                properties.put(ent.getKey(), value);
+            }
+        }
+        clocked_properties.clear();
     }
 }

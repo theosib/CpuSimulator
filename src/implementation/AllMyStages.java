@@ -20,7 +20,9 @@ import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import static utilitytypes.IProperties.*;
 import utilitytypes.IRegFile;
+import utilitytypes.Logger;
 import utilitytypes.Operand;
+import voidtypes.VoidLabelTarget;
 
 /**
  * The AllMyStages class merely collects together all of the pipeline stage 
@@ -61,11 +63,10 @@ public class AllMyStages {
             return has_work;
         }
         
-        
         @Override
         public String getStatus() {
             IGlobals globals = (GlobalData)getCore().getGlobals();
-            if (globals.getPropertyInteger("current_branch_state") == GlobalData.BRANCH_STATE_WAITING) {
+            if (globals.getPropertyInteger("branch_state_fetch") == GlobalData.BRANCH_STATE_WAITING) {
                 addStatusWord("ResolveWait");
             }
             return super.getStatus();
@@ -76,7 +77,12 @@ public class AllMyStages {
             IGlobals globals = (GlobalData)getCore().getGlobals();
             
             // Get the PC and fetch the instruction
-            int pc = globals.getPropertyInteger(PROGRAM_COUNTER);
+            int pc_no_branch    = globals.getPropertyInteger(PROGRAM_COUNTER);
+            int pc_taken_branch = globals.getPropertyInteger("program_counter_takenbranch");
+            int branch_state_decode = globals.getPropertyInteger("branch_state_decode");
+            int branch_state_fetch = globals.getPropertyInteger("branch_state_fetch");
+            int pc = (branch_state_decode == GlobalData.BRANCH_STATE_TAKEN) ?
+                    pc_taken_branch : pc_no_branch;
             InstructionBase ins = globals.getInstructionAt(pc);
             
             // Initialize this status flag to assume a stall or bubble condition
@@ -90,88 +96,35 @@ public class AllMyStages {
             if (ins.isNull()) {
                 // Fetch is working on no instruction at no address
                 setActivity("----: NULL");
-            }
-            
-            // Compute the value of the next program counter, to be committed
-            // in advanceClock depending on stall states.  This makes 
-            // computing the next PC idempotent.  
-            globals.setProperty("next_program_counter_nobranch", pc + 1);
-            
-            // Since there is no input pipeline register, we have to inform
-            // the diagnostic helper code explicitly what instruction Fetch
-            // is working on.
-            has_work = true;
-            setActivity(ins.toString());
-            
-            // If the instruction is a branch, request that the branch wait
-            // state be set.  This will be committed in Fetch.advanceClock
-            // if Decode isn't stalled.  This too is idempotent.
-            if (ins.getOpcode().isBranch()) {
-                globals.setProperty("next_branch_state_fetch", GlobalData.BRANCH_STATE_WAITING);
-            }
-            
-            // Send the fetched instruction to the output pipeline register.
-            // PipelineRegister.advanceClock will ignore this if 
-            // Decode is stalled, and Fetch.compute will keep setting the
-            // output instruction to the same thing over and over again.
-            // In the stall case Fetch.advanceClock will not change the program 
-            // counter, nor will it commit globals.next_branch_state_fetch to 
-            // globals.branch_state_fetch.
-            
-            if (output.canAcceptWork()) {
+            } else {            
+                // Since there is no input pipeline register, we have to inform
+                // the diagnostic helper code explicitly what instruction Fetch
+                // is working on.
+                has_work = true;
                 output.setInstruction(ins);
-                
-                if (globals.getPropertyInteger("current_branch_state") == GlobalData.BRANCH_STATE_WAITING) {
-                    // If we're currently waiting for a branch resolution...
-                    
-                    
-                    // See if the Decode stage has provided a resolution
-                    int branch_state_decode = globals.getPropertyInteger("branch_state_decode");
-                    if (branch_state_decode != GlobalData.BRANCH_STATE_NULL) {
-                        
-                        // Take action based on the resolution.
-                        switch (branch_state_decode) {
-                            
-                            // If Decode resolves that the branch is to be taken...
-                            case GlobalData.BRANCH_STATE_TAKEN:     
-                                // Set the PC to the branch target
-                                globals.setProperty(PROGRAM_COUNTER, 
-                                        globals.getPropertyInteger("next_program_counter_takenbranch"));
-                                break;
-
-                            // If Decode resolves that the branch is no to be taken...
-                            case GlobalData.BRANCH_STATE_NOT_TAKEN:
-                                // Set the PC to the address immediately after the branch
-                                globals.setProperty(PROGRAM_COUNTER, 
-                                        globals.getPropertyInteger("next_program_counter_nobranch"));
-                                break;
-                                
-                        }
-                        
-                        // Clear the stall state for Fetch
-                        globals.setProperty("current_branch_state", GlobalData.BRANCH_STATE_NULL);
-                    }                    
-                } else {
-                    // If we've not been waiting on a branch resolution...
-                    
-                    int next_branch_state_fetch = globals.getPropertyInteger("next_branch_state_fetch");
-                    if (next_branch_state_fetch != GlobalData.BRANCH_STATE_NULL) {
-                        // If Fetch wants to change its stall state...
-                        
-                        // Commit the new state
-                        globals.setProperty("current_branch_state", next_branch_state_fetch);
-                        
-                        // Clear the signal to change the state
-                        globals.setProperty("next_branch_state_fetch", GlobalData.BRANCH_STATE_NULL);
-                    }
-
-                    // When entering a branch wait state, go ahead and advance
-                    // the program counter to fetch the fall-through instruction.
-                    // This way, if the branch is not taken, we have already fetched
-                    // the next instruction and save a cycle.
-                    globals.setProperty(PROGRAM_COUNTER, 
-                            globals.getPropertyInteger("next_program_counter_nobranch"));
-                }                
+                setActivity(ins.toString());
+            }
+            
+            // If the output cannot accept work, then 
+            if (!output.canAcceptWork()) return;
+            
+//            Logger.out.println("No stall");
+            globals.setClockedProperty(PROGRAM_COUNTER, pc + 1);
+            
+            boolean branch_wait = false;
+            if (branch_state_fetch == GlobalData.BRANCH_STATE_WAITING) {
+                branch_wait = true;
+            }
+            if (branch_state_decode != GlobalData.BRANCH_STATE_NULL) {
+                Logger.out.println("branch state resolved");
+                globals.setClockedProperty("branch_state_fetch", GlobalData.BRANCH_STATE_NULL);
+                globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
+                branch_wait = false;
+            }
+            if (!branch_wait) {
+                if (ins.getOpcode().isBranch()) {
+                    globals.setClockedProperty("branch_state_fetch", GlobalData.BRANCH_STATE_WAITING);
+                }
             }
         }
     }
@@ -194,7 +147,7 @@ public class AllMyStages {
         public String getStatus() {
             IGlobals globals = (GlobalData)getCore().getGlobals();
             String s = super.getStatus();
-            if (squashing_instruction) {
+            if (globals.getPropertyBoolean("decode_squash")) {
                 s = "Squashing";
             }
             return s;
@@ -214,16 +167,15 @@ public class AllMyStages {
             // Default to no squashing.
             squashing_instruction = false;
             
-            if (ins.isNull()) return;
-            
             setActivity(ins.toString());
 
             IGlobals globals = (GlobalData)getCore().getGlobals();
-            if (globals.getPropertyInteger("branch_state_decode") == GlobalData.BRANCH_STATE_TAKEN) {
+            if (globals.getPropertyBoolean("decode_squash")) {
                 // Drop the fall-through instruction.
-                squashing_instruction = true;
-                setActivity("----: NULL");
-                globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
+                globals.setClockedProperty("decode_squash", false);
+                squashing_instruction = false;
+                //setActivity("----: NULL");
+//                globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
                 
                 // Squashing the fall-through instruction is "consuming" it, so we
                 // mustn't forget to consume it.
@@ -231,6 +183,7 @@ public class AllMyStages {
                 return;
             }
             
+            if (ins.isNull()) return;
             
             EnumOpcode opcode = ins.getOpcode();
             Operand oper0 = ins.getOper0();
@@ -241,8 +194,8 @@ public class AllMyStages {
             if (opcode.needsWriteback()) {
                 int oper0reg = oper0.getRegisterNumber();
                 if (regfile.isInvalid(oper0reg)) {
-                    //System.out.println("Stall because dest R" + oper0reg + " is invalid");
-                    setResourceWait("DestR"+oper0reg);
+                    //Logger.out.println("Stall because dest R" + oper0reg + " is invalid");
+                    setResourceWait("Dest:"+oper0.getRegisterName());
                     return;
                 }
             }
@@ -275,7 +228,7 @@ public class AllMyStages {
                     if (!oper0.hasValue()) {
                         // If we do not already have a value for the branch
                         // condition register, must stall.
-//                        System.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
+//                        Logger.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
                         this.setResourceWait(oper0.getRegisterName());
                         // Nothing else to do.  Bail out.
                         return;
@@ -317,7 +270,7 @@ public class AllMyStages {
                             // If branching to address in register, make sure
                             // operand is valid.
                             if (!src1.hasValue()) {
-//                                System.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
+//                                Logger.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
                                 this.setResourceWait(src1.getRegisterName());
                                 // Nothing else to do.  Bail out.
                                 return;
@@ -327,18 +280,19 @@ public class AllMyStages {
                         } else {
                             value1 = ins.getLabelTarget().getAddress();
                         }
-                        globals.setProperty("next_program_counter_takenbranch", value1);
+                        globals.setClockedProperty("program_counter_takenbranch", value1);
                         
                         // Send a signal to Fetch, indicating that the branch
                         // is resolved taken.  This will be picked up by
                         // Fetch.advanceClock on the same clock cycle.
-                        globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
-//                        System.out.println("Resolving branch taken");
+                        globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                        globals.setClockedProperty("decode_squash", true);
+//                        Logger.out.println("Resolving branch taken");
                     } else {
                         // Send a signal to Fetch, indicating that the branch
                         // is resolved not taken.
-                        globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_NOT_TAKEN);
-//                        System.out.println("Resolving branch not taken");
+                        globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NOT_TAKEN);
+//                        Logger.out.println("Resolving branch not taken");
                     }
                     
                     // Having completed execution of the BRA instruction, we must
@@ -355,7 +309,7 @@ public class AllMyStages {
                         if (!oper0.hasValue()) {
                             // If branching to address in register, make sure
                             // operand is valid.
-//                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
+//                            Logger.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
                             this.setResourceWait(oper0.getRegisterName());
                             // Nothing else to do.  Bail out.
                             return;
@@ -365,8 +319,9 @@ public class AllMyStages {
                     } else {
                         value0 = ins.getLabelTarget().getAddress();
                     }
-                    globals.setProperty("next_program_counter_takenbranch", value0);
-                    globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("program_counter_takenbranch", value0);
+                    globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("decode_squash", true);
                     
                     // Having completed execution of the JMP instruction, we must
                     // explicitly indicate that it has been consumed.
@@ -381,7 +336,7 @@ public class AllMyStages {
                         if (!src1.hasValue()) {
                             // If branching to address in register, make sure
                             // operand is valid.
-//                            System.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
+//                            Logger.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
                             this.setResourceWait(src1.getRegisterName());
                             // Nothing else to do.  Bail out.
                             return;
@@ -402,29 +357,41 @@ public class AllMyStages {
                     // replace the instruction's source operands with the
                     // address of the instruction and a constant 1.
                     
+                    Operand pc_operand = Operand.newRegister(Operand.PC_REGNUM);
+                    pc_operand.setIntValue(ins.getPCAddress());
+                    ins.setSrc1(pc_operand);
+                    ins.setSrc2(Operand.newLiteralSource(1));
+                    ins.setLabelTarget(VoidLabelTarget.getVoidLabelTarget());
+                    d2e_output.setInstruction(ins);
                     
-                    globals.setProperty("next_program_counter_takenbranch", value0);
-                    globals.setProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("program_counter_takenbranch", value1);
+                    globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("decode_squash", true);
+                    
+                    d2e_output.write();
+                    input.consume();
+                    return;
                     
                     // Having completed execution of the JMP instruction, we must
                     // explicitly indicate that it has been consumed.
-                    input.consume();
-                    return;
+//                    input.consume();
+//                    return;
             }
             
             
             // Allocate an output latch for the output pipeline register
             // appropriate for the type of instruction being processed.
             Latch output;
+            int output_num;
             if (opcode == EnumOpcode.MUL) {
-                int output_num = lookupOutput("DecodeToMSFU");
+                output_num = lookupOutput("DecodeToMSFU");
                 output = this.newOutput(output_num);
             } else
             if (opcode.accessesMemory()) {
-                int output_num = lookupOutput("DecodeToMemory");
+                output_num = lookupOutput("DecodeToMemory");
                 output = this.newOutput(output_num);
             } else {
-                int output_num = lookupOutput("DecodeToExecute");
+                output_num = lookupOutput("DecodeToExecute");
                 output = this.newOutput(output_num);
             }
             
@@ -454,14 +421,28 @@ public class AllMyStages {
                 if (!input.hasProperty(propname)) {
                     // If any source operand is not available
                     // now or on the next cycle, then stall.
-                    //System.out.println("Stall because no " + propname);
+                    //Logger.out.println("Stall because no " + propname);
                     this.setResourceWait(operArray[sn].getRegisterName());
                     // Nothing else to do.  Bail out.
                     return;
                 }
             }
-                
             
+            
+            if (CpuSimulator.printForwarding) {
+                for (int sn=0; sn<3; sn++) {
+                    String propname = "forward" + sn;
+                    if (input.hasProperty(propname)) {
+                        String operName = PipelineStageBase.operNames[sn];
+                        String srcFoundIn = input.getPropertyString(propname);
+                        String srcRegName = operArray[sn].getRegisterName();
+                        Logger.out.printf("Posting forward %s from %s to %s next stage\n", 
+                                srcRegName,
+                                srcFoundIn, operName);
+                    }
+                }
+            }            
+                    
             // If we managed to find all source operands, mark the destination
             // register invalid then finish putting data into the output latch 
             // and send it.
@@ -469,7 +450,6 @@ public class AllMyStages {
             // Mark the destination register invalid
             if (opcode.needsWriteback()) {
                 int oper0reg = oper0.getRegisterNumber();
-                System.out.println("Marking R" + oper0reg + " invalid");
                 regfile.markInvalid(oper0reg);
             }            
             
@@ -504,7 +484,8 @@ public class AllMyStages {
 
             int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
                         
-            output.setResultValue(result);
+            boolean isfloat = ins.getSrc1().isFloat() || ins.getSrc2().isFloat();
+            output.setResultValue(result, isfloat);
             output.setInstruction(ins);
         }
     }
@@ -521,8 +502,10 @@ public class AllMyStages {
             if (input.isNull()) return;
             doPostedForwarding(input);
             InstructionBase ins = input.getInstruction();
+            setActivity(ins.toString());
 
-            int oper0   = ins.getOper0().getValue();
+            Operand oper0 = ins.getOper0();
+            int oper0val = ins.getOper0().getValue();
             int source1 = ins.getSrc1().getValue();
             int source2 = ins.getSrc2().getValue();
             
@@ -542,15 +525,14 @@ public class AllMyStages {
                     value = memory[addr];
                     output.setResultValue(value);
                     output.setInstruction(ins);
-                    System.out.println("Memory[" + addr + "] -> " + value);
+                    addStatusWord("Mem[" + addr + "]");
                     break;
                 
                 case STORE:
                     // For store, the value to be stored in main memory is
                     // in oper0, which was fetched in Decode.
-                    value = oper0;
-                    memory[addr] = value;
-                    System.out.println("Memory[" + addr + "] <- " + value);
+                    memory[addr] = oper0val;
+                    addStatusWord("Mem[" + addr + "]=" + ins.getOper0().getValueAsString());
                     return;
                     
                 default:
@@ -591,12 +573,7 @@ public class AllMyStages {
                     int value = input.getResultValue();
                     boolean isfloat = input.isResultFloat();
 
-                    if (CpuSimulator.printRegWrite) {
-                        System.out.println("Storing " + input.getResultValueAsString() + " to " + regname);
-                    }
-                    
-                    addStatusWord(regname + "=" + value);
-
+                    addStatusWord(regname + "=" + input.getResultValueAsString());
                     regfile.setValue(regnum, value, isfloat);
                 }
 

@@ -6,6 +6,7 @@
 package tools;
 
 import utilitytypes.EnumOpcode;
+import utilitytypes.Logger;
 
 /**
  * The code that implements the ALU has been separates out into a static
@@ -19,6 +20,7 @@ public class MyALU {
         int result = 0;
         
         switch (opcode) {
+            case CALL:
             case ADD:
                 result = input1 + input2;
                 break;
@@ -72,11 +74,11 @@ public class MyALU {
                 // Since OUT is inspired by an I/O instruction in real 
                 // CPUs, possibly the most "purist" stage to execute it in
                 // would be Memory.
-                System.out.println("@@output: " + oper0);
+                Logger.out.println("@@output: " + oper0);
                 break;
                 
             case FOUT:
-                System.out.println("@@output: " + Float.intBitsToFloat(oper0));
+                Logger.out.println("@@output: " + Float.intBitsToFloat(oper0));
                 break;
         }
         

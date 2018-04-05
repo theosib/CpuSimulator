@@ -90,7 +90,7 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
      */
     public void writeBubble() { 
         master = invalid; 
-//        System.out.println("Register " + getName() + " master written with bubble");
+//        Logger.out.println("Register " + getName() + " master written with bubble");
         cycle_number_master = getCycleNumber();
     }
     public boolean isMasterBubble() { 
@@ -176,7 +176,7 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
      */
     @Override
     public void write(Latch output) {
-//        System.out.println("Register " + getName() + " master written with " +
+//        Logger.out.println("Register " + getName() + " master written with " +
 //            output.ins);
         master = output;
         cycle_number_master = getCycleNumber();
@@ -193,7 +193,7 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
      */
     @Override
     public void advanceClock() {
-//        System.out.println("Clocking " + getName() + " ss=" +
+//        Logger.out.println("Clocking " + getName() + " ss=" +
 //                isSlaveStalled() + " mb=" + isMasterBubble());
         if (isSlaveStalled()) {
             // The stage after this one cannot accept new work, so no data
@@ -238,7 +238,7 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
     
         
     public EnumForwardingStatus matchForwardingRegister(int regnum) {
-//        System.out.println("Trying to match R" + regnum + " against " +
+//        Logger.out.println("Trying to match R" + regnum + " against " +
 //                getHierarchicalName());
         if (slave.getResultRegNum()==regnum && slave.hasResultValue()) {
             return EnumForwardingStatus.VALID_NOW;

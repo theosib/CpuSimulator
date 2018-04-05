@@ -368,4 +368,15 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         parent.addForwardingTarget(getLocalName() + '.' + name);
     }
     
+    
+    public void clockProperties() {
+        if (properties != null) {
+            properties.advanceClock();
+        }
+        Map<String, IFunctionalUnit> children = getLocalChildUnits();
+        if (children == null) return;
+        for (IFunctionalUnit unit : children.values()) {
+            unit.clockProperties();
+        }
+    }
 }

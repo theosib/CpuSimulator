@@ -8,6 +8,7 @@ package cpusimulator;
 import implementation.MyCpuCore;
 import java.io.IOException;
 import tools.InstructionSequence;
+import utilitytypes.Logger;
 
 /**
  *
@@ -17,7 +18,8 @@ public class CpuSimulator {
     
     public static boolean printStagesEveryCycle = true;
     public static boolean printForwarding = true;
-    public static boolean printRegWrite = false;
+    public static boolean printRegWrite = true;
+    public static boolean printPropertyUpdates = false;
 
     /**
      * @param args the command line arguments
@@ -26,7 +28,7 @@ public class CpuSimulator {
         InstructionSequence seq = new InstructionSequence();
         seq.loadFile("samples/sieve.asm");
         seq.printProgram();
-        System.out.println();
+        Logger.out.println();
         
         MyCpuCore core = new MyCpuCore();
         core.loadProgram(seq);

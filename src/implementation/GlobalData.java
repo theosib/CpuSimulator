@@ -40,14 +40,10 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
     @Override
     public void setup() {
         this.setProperty(PROGRAM_COUNTER, (int)0);
-//        this.setProperty(REGISTER_FILE, new int[32]);
-//        this.setProperty(REGISTER_INVALID, new boolean[32]);
         this.setProperty(MAIN_MEMORY, new int[1024]);
         this.setProperty("running", false);
-        this.setProperty("next_program_counter_nobranch", (int)0);
-        this.setProperty("next_program_counter_takenbranch", (int)0);
-        this.setProperty("current_branch_state", BRANCH_STATE_NULL);
-        this.setProperty("next_branch_state_fetch", BRANCH_STATE_NULL);
+        this.setProperty("program_counter_takenbranch", (int)0);
+        this.setProperty("branch_state_fetch", BRANCH_STATE_NULL);
         this.setProperty("branch_state_decode", BRANCH_STATE_NULL);
         this.regfile = new RegisterFile(32);
     }
@@ -69,5 +65,10 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
     @Override
     public IRegFile getRegisterFile() {
         return regfile;
+    }
+    
+    public void advanceClock() {
+        super.advanceClock();
+        getRegisterFile().advanceClock();
     }
 }

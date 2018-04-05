@@ -13,6 +13,7 @@ import tools.InstructionSequence;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import static utilitytypes.IProperties.*;
+import utilitytypes.Logger;
 import voidtypes.VoidRegister;
 
 /**
@@ -35,7 +36,7 @@ public class MyCpuCore extends CpuCore {
     public void runProgram() {
         properties.setProperty("running", true);
         while (properties.getPropertyBoolean("running")) {
-            System.out.println("Cycle number: " + cycle_number);
+            Logger.out.println("Cycle number: " + cycle_number);
             advanceClock();
         }
     }
@@ -101,8 +102,6 @@ public class MyCpuCore extends CpuCore {
     @Override
     public void specifyForwardingTargets() {
         // Not really used for anything yet
-        addForwardingTarget("DecodeToMemory");
-        addForwardingTarget("DecodeToWriteback");
     }
 
     @Override
@@ -114,6 +113,6 @@ public class MyCpuCore extends CpuCore {
         super(null, "core");
         initModule();
         printHierarchy();
-        System.out.println("");
+        Logger.out.println("");
     }
 }

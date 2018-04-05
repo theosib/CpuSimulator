@@ -22,12 +22,16 @@ public interface IProperties {
     public static final String PROGRAM_COUNTER = "program_counter";
     public static final String MAIN_MEMORY = "main_memory";
     
+    public static final Object DELETE = new Object();
+    
     public Set<String> propertyNames();
     public Map<String,Object> getProperties();
     public int numProperties();
     public boolean hasProperty(String name);
     public void setProperty(String name, Object val);
+    public void setClockedProperty(String name, Object val);
     public void deleteProperty(String name);
+    public void deleteClockedProperty(String name);
     public Integer getPropertyInteger(String name);
     public int[] getPropertyIntArray(String name);
     public Boolean getPropertyBoolean(String name);
@@ -35,6 +39,7 @@ public interface IProperties {
     public String getPropertyString(String name);
     public Object getPropertyObject(Object name);
     public void clear();
+    public void advanceClock();
 
     public void copyPropertiesFrom(IProperties source, Set<String> propertiesToCopy);
     public void copyPropertiesFrom(IProperties source);

@@ -218,6 +218,16 @@ public class Latch extends PropertiesContainer {
         setProperty(RESULT_FLOAT, true);
     }
     
+    public void setResultValue(int value, boolean isfloat) {
+        if (invalid) return;
+        setProperty(RESULT_VALUE, value);
+        if (isfloat) {
+            setProperty(RESULT_FLOAT, true);
+        } else {
+            deleteProperty(RESULT_FLOAT);
+        }
+    }
+    
     /**
      * Store computed result value, a float encoded as an int
      * 

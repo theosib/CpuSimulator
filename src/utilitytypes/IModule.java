@@ -288,4 +288,7 @@ public interface IModule extends IComponent {
      * @param name
      */
     void addForwardingTarget(String name);
+    
+    
+    void clockProperties();
 }
