@@ -1,37 +1,37 @@
 ; Implementations of square root and sine
 
-; Use R31 for function return address
-; Use R30 as stack pointer
-movc R30 1024
+    ; Use R31 for function return address
+    ; Use R30 as stack pointer
+    movc R30 1024
 
-; Call subroutine to compute sine
-movc r1 6.0
-call r31 sine
-fout r0
-
-
-; Call subroutine to compute sqrt
-movc r1 2.0
-call r31 sqrt
-fout r0
+    ; Call subroutine to compute sine
+    movc r1 6.0
+    call r31 sine
+    fout r0
 
 
-; Due to varying pipeline lengths, HALT could make it to Writeback before
-; other instructions are finished, so we just need to insert some NOPs.
-; We won't need this when we have a reorder buffer, because we can execute
-; HALT when it retires.
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-halt
+    ; Call subroutine to compute sqrt
+    movc r1 2.0
+    call r31 sqrt
+    fout r0
+
+
+    ; Due to varying pipeline lengths, HALT could make it to Writeback before
+    ; other instructions are finished, so we just need to insert some NOPs.
+    ; We won't need this when we have a reorder buffer, because we can execute
+    ; HALT when it retires.
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    halt
 
 
 

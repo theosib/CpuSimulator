@@ -17,7 +17,7 @@ import java.util.List;
 public interface IPipeStage extends IComponent {
     /**
      * Clear the list of pipeline stage status keywords.  This is called
- by evaluate at the beginning of the clock cycle.
+     * by evaluate at the beginning of the clock cycle.
      */
     public void clearStatus();
 
@@ -66,6 +66,12 @@ public interface IPipeStage extends IComponent {
      * @return Current topological order position.
      */
     public int getTopoOrder();
+    
+    
+    
+    public void setPrintOrder(int pos);
+    public int getPrintOrder();
+    
     
     /**
      * Returns true if the stage is stuck waiting on a resource.  
@@ -317,11 +323,6 @@ public interface IPipeStage extends IComponent {
      */
     public void doPostedForwarding(Latch input);
     
-    /**
-     * This method specifies that this pipeline stage is an input stage for 
-     * its parent module.
-     */
-    public void markExternalInput();
     
     /**
      * For diagnostic purposes, this returns a string array containing 
@@ -330,4 +331,6 @@ public interface IPipeStage extends IComponent {
      * @return
      */
     public String[] connectionsToStringArr();    
+    
+    default public IPipeStage getOriginal() { return this; }
 }

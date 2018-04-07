@@ -46,6 +46,6 @@ public class VoidComponent implements IComponent {
 
     @Override
     public String getShortName() {
-        return ComponentBase.getOnlyCaps(getLocalName(), "");
+        return ComponentBase.computeOnlyCaps(getLocalName(), "");
     }
 }

@@ -62,33 +62,40 @@ public class MyCpuCore extends CpuCore {
 
     @Override
     public void createChildModules() {
+        // MSFU is an example multistage functional unit.  Use this as a
+        // basis for FMul, IMul, and FAddSub functional units.
         addChildUnit(new MultiStageFunctionalUnit(this, "MSFU"));
     }
 
     @Override
     public void createConnections() {
         // Connect pipeline elements by name.  Notice that 
-        // Decode has two outputs, anle to send to either Memory OR Execute 
-        // and that Writeback has two inputs, able to receive from both
-        // Execute and Memory.  
-        // Memory no longer connects to Execute.  It is now a fully 
+        // Decode has multiple outputs, able to send to Memory, Execute,
+        // or any other compute stages or functional units.
+        // Writeback also has multiple inputs, able to receive from 
+        // any of the compute units.
+        // NOTE: Memory no longer connects to Execute.  It is now a fully 
         // independent functional unit, parallel to Execute.
-        connect("Fetch", "FetchToDecode");
-        connect("FetchToDecode", "Decode");
         
-        connect("Decode", "DecodeToExecute");
-        connect("Decode", "DecodeToMemory");
-        connect("Decode", "DecodeToMSFU");
+        // Connect two stages through a pipelin register
+        connect("Fetch", "FetchToDecode", "Decode");
         
-        connect("DecodeToExecute", "Execute");
-        connect("DecodeToMemory", "Memory");
-        connect("DecodeToMSFU", "MSFU");
+        // Decode has multiple output registers, connecting to different
+        // execute units.  
+        // "MSFU" is an example multistage functional unit.  Those that
+        // follow the convention of having a single input stage and single
+        // output register can be connected simply my naming the functional
+        // unit.  The input to MSFU is really called "MSFU.in".
+        connect("Decode", "DecodeToExecute", "Execute");
+        connect("Decode", "DecodeToMemory", "Memory");
+        connect("Decode", "DecodeToMSFU", "MSFU");
         
-        connect("Execute", "ExecuteToWriteback");
-        connect("Memory", "MemoryToWriteback");
-        
-        connect("ExecuteToWriteback", "Writeback");
-        connect("MemoryToWriteback", "Writeback");
+        // Writeback has multiple input connections from different execute
+        // units.  The output from MSFU is really called "MSFU.Delay.out",
+        // which was aliased to "MSFU.out" so that it would be automatically
+        // identified as an output from MSFU.
+        connect("Execute","ExecuteToWriteback", "Writeback");
+        connect("Memory", "MemoryToWriteback", "Writeback");
         connect("MSFU", "Writeback");
     }
 
@@ -96,7 +103,11 @@ public class MyCpuCore extends CpuCore {
     public void specifyForwardingSources() {
         addForwardingSource("ExecuteToWriteback");
         addForwardingSource("MemoryToWriteback");
-        addForwardingSource("MSFU.Delay.out");
+        
+        // I could modify addForwardingSource to automatically figure out
+        // the output from a functional unit, but for now, we must specify
+        // the full path to registers that can be forwarded from.
+        addForwardingSource("MSFU.out");
     }
 
     @Override
@@ -106,7 +117,9 @@ public class MyCpuCore extends CpuCore {
 
     @Override
     public IPipeStage getFirstStage() {
-        return this.getPipeStage("Fetch");
+        // CpuCore will sort stages into an optimal ordering.  This provides
+        // the starting point.
+        return getPipeStage("Fetch");
     }
     
     public MyCpuCore() {

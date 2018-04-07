@@ -558,7 +558,8 @@ public class AllMyStages {
             int num_inputs = this.getInputRegisters().size();
             for (int i=0; i<num_inputs; i++) {
                 // Get the input by index and the instruction it contains
-                Latch input = this.readInput(i);
+                Latch input = readInput(i);
+                
                 // Skip to the next iteration of there is no instruction.
                 if (input.isNull()) continue;
                 

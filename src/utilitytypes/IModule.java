@@ -246,6 +246,7 @@ public interface IModule extends IComponent {
      */
     public void connect(String source_name, String target_name);
     
+    public void connect(String stage1, String reg, String stage2);    
     
     /**
      * Create a new pipeline register, with the given list of default
@@ -289,6 +290,9 @@ public interface IModule extends IComponent {
      */
     void addForwardingTarget(String name);
     
+    public void addStageAlias(String real_name, String alias_name);
+
+    public void addRegAlias(String real_name, String alias_name);
     
     void clockProperties();
 }

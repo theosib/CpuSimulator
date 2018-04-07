@@ -21,27 +21,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
     public FunctionalUnitBase(IModule parent, String name) {
         super(parent, name);
     }
-
-    protected Map<String, IPipeStage> external_input_pipe_stages;
-    
-    @Override
-    public Map<String, IPipeStage> getExternalInputPipeStages() {
-        if (external_input_pipe_stages == null) {
-            external_input_pipe_stages = new HashMap<>();
-        }
-        return external_input_pipe_stages;
-    }
-    
-    protected Map<String, IPipeReg> external_output_pipe_regs;
-
-    @Override
-    public Map<String, IPipeReg> getExternalOutputPipeRegs() {
-        if (external_output_pipe_regs == null) {
-            external_output_pipe_regs = new HashMap<>();
-        }
-        return external_output_pipe_regs;
-    }
-    
     
     @Override
     public IPipeStage getInputPipeStage(String name) {
@@ -62,13 +41,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
     }
     
     @Override
-    public void specifyExternalInputStage(String name) {
-        Map<String,IPipeStage> extins = getExternalInputPipeStages();
-        IPipeStage input = getInputPipeStage(name);
-        extins.put(name, input);
-    }
-
-    @Override
     public Map<String,IPipeStage> getInputPipeStages() {
         Map<String,IPipeStage> stages = new HashMap<>();
         
@@ -79,18 +51,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
             }
         }
         
-        Map<String,IFunctionalUnit> children = getLocalChildUnits();
-        for (Map.Entry<String,IFunctionalUnit> unit : children.entrySet()) {
-            IFunctionalUnit child = unit.getValue();
-            Map<String,IPipeStage> child_externals = child.getExternalInputPipeStages();
-            if (child_externals == null) continue;
-            
-            String prefix = unit.getKey() + '.';
-            for (Map.Entry<String,IPipeStage> entry : child_externals.entrySet()) {
-                String name = prefix + entry.getKey();
-                stages.put(name, entry.getValue());
-            }
-        }
         
         return stages;
     }
@@ -113,12 +73,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
         return getLocalPipeReg(name);
     }
 
-    @Override
-    public void specifyExternalOutputReg(String name) {
-        Map<String,IPipeReg> extouts = getExternalOutputPipeRegs();
-        IPipeReg output = getOutputPipeReg(name);
-        extouts.put(name, output);
-    }    
 
     @Override
     public Map<String,IPipeReg> getOutputPipeRegs() {
@@ -131,18 +85,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
             }
         }
 
-        Map<String,IFunctionalUnit> children = getLocalChildUnits();
-        for (Map.Entry<String,IFunctionalUnit> unit : children.entrySet()) {
-            IFunctionalUnit child = unit.getValue();
-            Map<String,IPipeReg> child_externals = child.getExternalOutputPipeRegs();
-            if (child_externals == null) continue;
-            
-            String prefix = unit.getKey() + '.';
-            for (Map.Entry<String,IPipeReg> entry : child_externals.entrySet()) {
-                String name = prefix + entry.getKey();
-                regs.put(name, entry.getValue());
-            }
-        }
         
         return regs;
     }

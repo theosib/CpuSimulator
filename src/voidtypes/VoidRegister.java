@@ -119,12 +119,10 @@ public class VoidRegister extends VoidComponent implements IPipeReg {
         return 0;
     }
 
-    @Override
-    public void markExternalOutput() {}
     
     @Override
     public String getShortName() {
-        return ComponentBase.getOnlyCaps(getLocalName(), "r");
+        return ComponentBase.computeOnlyCaps(getLocalName(), "r");
     }    
 
     @Override

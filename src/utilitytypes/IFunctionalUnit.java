@@ -32,19 +32,6 @@ public interface IFunctionalUnit extends IModule {
      */
     IPipeStage getInputPipeStage(String name);
     
-    /**
-     * If this functional unit has any input pipeline stages that are inputs
-     * to its parent module, then override this method to return that subset of
-     * stages.
-     * @return
-     */
-    Map<String,IPipeStage> getExternalInputPipeStages();
-    
-    /**
-     * Specify an input pipeline stage to be an input to its parent module;
-     * @param name
-     */
-    void specifyExternalInputStage(String name);
     
     /**
      * Pipeline registers that are inputs to a functional unit must be named
@@ -61,21 +48,6 @@ public interface IFunctionalUnit extends IModule {
      * @return IPipeReg
      */
     IPipeReg getOutputPipeReg(String name);
-    
-    
-    /**
-     * If this functional unit has any input pipeline stages that are inputs
-     * to its parent module, then override this method to return that subset of
-     * stages.
-     * @return
-     */
-    Map<String,IPipeReg> getExternalOutputPipeRegs();
-    
-    /**
-     * Specify a pipeline register to be an output from its parent module
-     * @param name
-     */
-    void specifyExternalOutputReg(String name);
     
     /**
      * Pipeline registers that are outputs from a functional unit must have names

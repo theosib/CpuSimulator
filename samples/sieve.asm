@@ -64,4 +64,21 @@ next_print:
     bra lt, r3, print_loop  ; If R2 is < R10, continue print loop
 
     ; All finished!
-    HALT
+
+
+    ; Due to varying pipeline lengths, HALT could make it to Writeback before
+    ; other instructions are finished, so we just need to insert some NOPs.
+    ; We won't need this when we have a reorder buffer, because we can execute
+    ; HALT when it retires.
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    halt

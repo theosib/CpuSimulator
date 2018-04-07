@@ -54,6 +54,15 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     @Override
     public int getTopoOrder() { return topo_order; }
     
+    private int print_order = -1;
+    @Override
+    public void setPrintOrder(int pos) { 
+//        System.out.println(getHierarchicalName() + " order " + pos);
+        print_order = pos; 
+    }
+    @Override
+    public int getPrintOrder() { return print_order; }    
+    
     private List<IPipeReg> input_regs;
     @Override
     public List<IPipeReg> getInputRegisters() { return input_regs; }
@@ -666,11 +675,6 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     }
     
     
-    @Override
-    public void markExternalInput() {
-        IFunctionalUnit parent = (IFunctionalUnit)getParent();
-        parent.specifyExternalInputStage(getLocalName());
-    }    
 
     
 }

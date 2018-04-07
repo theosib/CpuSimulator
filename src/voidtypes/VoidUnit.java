@@ -30,11 +30,6 @@ public class VoidUnit extends VoidModule implements IFunctionalUnit {
     public static final Map<String,IPipeStage> void_stages = Collections.unmodifiableMap(new HashMap<String,IPipeStage>());
     public static final Map<String,IPipeReg> void_regs = Collections.unmodifiableMap(new HashMap<String,IPipeReg>());
     
-    @Override
-    public Map<String, IPipeStage> getExternalInputPipeStages() { return void_stages; }
-
-    @Override
-    public void specifyExternalInputStage(String name) {}
 
     @Override
     public Map<String, IPipeStage> getInputPipeStages() { return void_stages; }
@@ -44,17 +39,12 @@ public class VoidUnit extends VoidModule implements IFunctionalUnit {
         return VoidRegister.getVoidRegister();
     }
 
-    @Override
-    public Map<String, IPipeReg> getExternalOutputPipeRegs() { return void_regs; }
-
-    @Override
-    public void specifyExternalOutputReg(String name) {}
 
     @Override
     public Map<String, IPipeReg> getOutputPipeRegs() { return void_regs; }
     
     @Override
     public String getShortName() {
-        return ComponentBase.getOnlyCaps(getLocalName(), "u");
+        return ComponentBase.computeOnlyCaps(getLocalName(), "u");
     }
 }

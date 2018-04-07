@@ -10,12 +10,11 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import utilitytypes.IFunctionalUnit;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
+import utilitytypes.Logger;
 
 /**
  * This is a generic pipeline register that is used to connect pipeline 
@@ -27,6 +26,7 @@ import utilitytypes.IPipeStage;
 public class PipelineRegister extends ComponentBase implements IPipeReg {
     int cycle_number_slave = 0;
     int cycle_number_master = 0;
+    int cycle_number_clock = 0;
     
     protected Latch master;
     protected Latch slave;
@@ -94,13 +94,14 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
         cycle_number_master = getCycleNumber();
     }
     public boolean isMasterBubble() { 
-        if (cycle_number_master != getCycleNumber()) {
+        int core_cycle = getCycleNumber();
+        if (cycle_number_master != core_cycle) {
             IPipeStage before = getStageBefore();
             if (before == null) {
                 throw new RuntimeException("No pipeline stage before " + getHierarchicalName());
             }
             before.evaluate();
-            cycle_number_master = getCycleNumber();
+            cycle_number_master = core_cycle;
         }
         return master.isNull(); 
     }
@@ -127,14 +128,15 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
     }    
 
     private boolean isSlaveStalled() {   
-        if (cycle_number_slave != getCycleNumber()) {
+        int core_cycle = getCycleNumber();
+        if (cycle_number_slave != core_cycle) {
             if (slave.isNull()) {
                 slave_stalled = false;
             } else {
                 slave_stalled = true;
                 getStageAfter().evaluate();
             }
-            cycle_number_slave = getCycleNumber();
+            cycle_number_slave = core_cycle;
         }
         if (slave_stalled) {
             String pregname = getShortName();
@@ -193,8 +195,10 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
      */
     @Override
     public void advanceClock() {
-//        Logger.out.println("Clocking " + getName() + " ss=" +
-//                isSlaveStalled() + " mb=" + isMasterBubble());
+        int core_cycle = getCycleNumber();
+        if (cycle_number_clock == core_cycle) return;
+        cycle_number_clock = core_cycle;
+        
         if (isSlaveStalled()) {
             // The stage after this one cannot accept new work, so no data
             // can move.  We need to leave the slave latch untouched since
@@ -224,6 +228,7 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
     public void reset() {
         cycle_number_slave = 0;
         cycle_number_master = 0;
+        cycle_number_clock = 0;
         master = new Latch(this);
         slave = new Latch(this);
     }
@@ -259,10 +264,6 @@ public class PipelineRegister extends ComponentBase implements IPipeReg {
         return slave.isResultFloat();
     }
 
-    public void markExternalOutput() {
-        IFunctionalUnit parent = (IFunctionalUnit)getParent();
-        parent.specifyExternalOutputReg(getLocalName());
-    }
         
     /**
      * Constructor that accepts Set of property names

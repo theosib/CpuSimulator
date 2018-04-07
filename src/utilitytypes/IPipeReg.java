@@ -250,6 +250,6 @@ public interface IPipeReg extends IComponent {
     
     public boolean isResultFloat();
     
+    default public IPipeReg getOriginal() { return this; }
     
-    public void markExternalOutput();
 }

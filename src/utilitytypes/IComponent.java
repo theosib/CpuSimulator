@@ -42,7 +42,9 @@ public interface IComponent {
      */
     ICpuCore getCore();
     
-    
+    /**
+     * @return The current clock cycle number from the core
+     */
     int getCycleNumber();
     
     /**
@@ -50,5 +52,8 @@ public interface IComponent {
      */
     public void reset();
 
+    /**
+     * @return How far down is this component in the module hierarchy?
+     */
     public int getDepth();
 }

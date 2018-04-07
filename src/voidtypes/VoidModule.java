@@ -147,9 +147,18 @@ public class VoidModule extends VoidComponent implements IModule {
 
     @Override
     public String getShortName() {
-        return ComponentBase.getOnlyCaps(getLocalName(), "m");
+        return ComponentBase.computeOnlyCaps(getLocalName(), "m");
     }    
 
     @Override
     public void clockProperties() {}
+
+    @Override
+    public void connect(String stage1, String reg, String stage2) {}
+
+    @Override
+    public void addStageAlias(String real_name, String alias_name) {}
+
+    @Override
+    public void addRegAlias(String real_name, String alias_name) {}
 }

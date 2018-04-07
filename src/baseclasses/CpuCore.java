@@ -11,11 +11,13 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import utilitytypes.IFunctionalUnit;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
@@ -27,6 +29,8 @@ import utilitytypes.Logger;
  * lists to store pipeline stage and pipeline register objects, and it contains
  * code that automatically tells pipeline stages to compute and pipeline 
  * registers to transfer their inputs to their outputs.
+ * 
+ * Also see utilitytypes/ICpuCore for more documentation.
  * 
  * @author millerti
  */
@@ -42,10 +46,17 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     
     protected Set<IPipeStage> known_stages;
     protected List<IPipeStage> stage_topo_order;
+    protected List<IPipeStage> stage_print_order;
+    
     @Override
     public List<IPipeStage> getStageComputeOrder() { return stage_topo_order; }
     
+    @Override
+    public List<IPipeStage> getStagePrintOrder() { return stage_print_order; }
+
+    
     private void stageTopologicalOrder(IPipeStage stage) {
+        stage = stage.getOriginal();
         known_stages.add(stage);
         
         int this_order = stage.getTopoOrder();
@@ -55,7 +66,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         List<IPipeReg> inputs = stage.getInputRegisters();
         if (inputs != null) {
             for (IPipeReg in_reg : inputs) {
-                IPipeStage in_stage = in_reg.getStageBefore();
+                IPipeStage in_stage = in_reg.getStageBefore().getOriginal();
                 int old_in_order = in_stage.getTopoOrder();
                 if (old_in_order > new_in_order) {
                     in_stage.setTopoOrder(new_in_order);
@@ -68,7 +79,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         List<IPipeReg> outputs = stage.getOutputRegisters();
         if (outputs != null) {
             for (IPipeReg out_reg : outputs) {
-                IPipeStage out_stage = out_reg.getStageAfter();
+                IPipeStage out_stage = out_reg.getStageAfter().getOriginal();
                 int old_out_order = out_stage.getTopoOrder();
                 if (old_out_order < new_out_order) {
                     out_stage.setTopoOrder(new_out_order);
@@ -76,6 +87,41 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 }
             }
         }
+    }
+    
+            
+    private int sortPrintOrder(IModule parent, int index, IPipeStage start) {
+        start.setPrintOrder(index++);
+        
+        List<IPipeReg> outputs = start.getOutputRegisters();
+        if (outputs==null || outputs.size()==0) return index;
+
+        List<IPipeStage> expanded = new ArrayList<>();
+        List<IPipeStage> expanded_lower = new ArrayList<>();
+        for (IPipeReg reg : outputs) {
+            IPipeStage stage = reg.getStageAfter();
+            
+            if (stage == null) {
+                throw new RuntimeException("PipeReg " + reg.getHierarchicalName() + 
+                        " does not output to any pipeline stage");
+            }
+            
+            if (stage.getParent() == parent) {
+                expanded.add(stage);
+            } else {
+                expanded_lower.add(stage);
+            }
+        }
+        
+        for (IPipeStage stage : expanded) {
+            index = sortPrintOrder(parent, index, stage);
+        }
+
+        for (IPipeStage stage : expanded_lower) {
+            index = sortPrintOrder(stage.getParent(), index, stage);
+        }
+        
+        return index;
     }
     
     @Override
@@ -88,51 +134,18 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         stage_topo_order = new ArrayList(known_stages);
         stage_topo_order.sort((IPipeStage a, IPipeStage b) -> b.getTopoOrder() - a.getTopoOrder());
         
-        int[] last_swapped = {-1, -1};
         
-        boolean swapped = true;
-        while (swapped) {
-            swapped = false;
-
-            for (int i=2; i<stage_topo_order.size(); i++) {
-                IPipeStage me = stage_topo_order.get(i);
-                IModule myparent = me.getParent();
-                if (myparent == null || myparent == this) continue;
-                int myorder = me.getTopoOrder();
-                IPipeStage pr = stage_topo_order.get(i-1);
-                int prorder = pr.getTopoOrder();
-                if (myorder != prorder) { continue; }
-
-                int child_ix = -1;
-                for (int j=i-2; j>=0; j--) {
-                    IPipeStage other = stage_topo_order.get(j);
-                    IModule oparent = other.getParent();
-                    if (oparent == null) continue;
-                    IModule pparent = oparent.getParent();
-                    if (pparent == null) continue;
-                    if (pparent == myparent) {
-//                        Logger.out.println(me.getHierarchicalName() + " at " + 
-//                                i + " attracted to " +
-//                                oparent.getHierarchicalName() + " at " + j);
-                        child_ix = j;
-                        break;
-                    }
-                }
-                if (child_ix < 0) { continue; }
-
-                stage_topo_order.set(i, pr);
-                stage_topo_order.set(i-1, me);
-                if (i-1 == last_swapped[0] && i == last_swapped[1]) break;
-                last_swapped[0] = i-1;
-                last_swapped[1] = i;
-//                Logger.out.println("Swapping " + me.getHierarchicalName() + " at " + i +
-//                        " with " + pr.getHierarchicalName() + " at " + (i-1));
-                swapped = true;
-                i--;
-                if (i>2) i--;
-            }
-        }
+        
+        stage_print_order = new ArrayList(known_stages);
+        sortPrintOrder(this, 0, first_stage);
+        stage_print_order.sort((IPipeStage a, IPipeStage b) -> a.getPrintOrder() - b.getPrintOrder());
+        
+//        for (IPipeStage stage : stage_print_order) {
+//            System.out.println(stage.getPrintOrder() + ": " + stage.getHierarchicalName());
+//        }
     }
+    
+    
         
     /**
      * Step the CPU by one clock cycle.
@@ -144,31 +157,40 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         // Tell all states to compute their outputs from their inputs, along
         // with stall conditions (waiting on resource or output unable to 
         // accept data).
-        
-        List<IPipeStage> stage_order = getStageComputeOrder();
-        for (IPipeStage stage : stage_order) {
+        List<IPipeStage> stage_topo_order = getStageComputeOrder();
+        for (IPipeStage stage : stage_topo_order) {
             stage.evaluate();
         }
         
+        // For diagnostic purposes, print out activity and status of every
+        // pipeline stage.
         if (CpuSimulator.printStagesEveryCycle) {
-            int n = stage_order.size();
-            for (int i=n-1; i>=0; i--) {
-                IPipeStage stage = stage_order.get(i);
-                Logger.out.printf("%-30s: %-40s %s\n", stage.getHierarchicalName(), stage.getActivity(),
+            List<IPipeStage> stage_print_order = getStagePrintOrder();
+            for (IPipeStage stage : stage_print_order) {
+                int depth = stage.getDepth();
+                String name = "";
+                for (int i=2; i<depth; i++) name += " ";
+                name += stage.getHierarchicalName();
+                Logger.out.printf("%-30s: %-40s %s\n", name, stage.getActivity(),
                         stage.getStatus());
             }
         }        
         
         // Tell every pipeline register to atomicaly move its input to its 
-        // output.  Under stall conditions, this may have no effect.
+        // output.  Pipeline registers take into account stall conditions.
         for (IPipeReg reg : flattened_registers.values()) {
             reg.advanceClock();
         }
         
         // We use the clocked properties feature on globals and properties
-        // of submodules
+        // of submodules to allow property changes to take effect only
+        // for the next clock cycle.  Without this, we get erroneous 
+        // communication between stages in the same cycle, which causes
+        // unexpected behaviors.
         clockProperties();
         
+        // For now, this just causes the logger to print out a blank line,
+        // but ONLY if other lines have been printed.
         Logger.out.advanceClock();
     }    
 
@@ -177,12 +199,13 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     
     @Override
     public void addForwardingSource(String name) {
-//        Logger.out.println("addForwardingSource");
-//        Logger.out.println(name);
-//        Logger.out.println(forwarding_sources);
         forwarding_sources.add(name);
     }
 
+    /**
+     * This feature isn't implemented yet
+     * @param name 
+     */
     @Override
     public void addForwardingTarget(String name) {
         forwarding_targets.add(name);
@@ -259,10 +282,8 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         List<String[]> rows = new ArrayList<String[]>();
         int[] maxcol = new int[3];
         
-        List<IPipeStage> stage_order = getStageComputeOrder();
-        int n = stage_order.size();
-        for (int i=n-1; i>=0; i--) {
-            IPipeStage stage = stage_order.get(i);
+        List<IPipeStage> stage_order = getStagePrintOrder();
+        for (IPipeStage stage : stage_order) {
             String[] cols = stage.connectionsToStringArr();
             
             for (int j=0; j<3; j++) {

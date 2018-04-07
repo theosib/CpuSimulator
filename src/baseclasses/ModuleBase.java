@@ -13,6 +13,8 @@ import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import utilitytypes.IProperties;
+import utilitytypes.PipeRegAlias;
+import utilitytypes.PipeStageAlias;
 
 /**
  *
@@ -35,28 +37,60 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     // be retrieved.
     protected Map<String, IFunctionalUnit> children = new HashMap<>();
 
+    
+    protected Map<String, IPipeStage> stage_aliases;
+    protected Map<String, IPipeReg> reg_aliases;
+    
+    @Override
+    public void addStageAlias(String real_name, String alias_name) {
+        IPipeStage stage = getPipeStage(real_name);
+        if (stage_aliases == null) stage_aliases = new HashMap<>();
+        IPipeStage alias = new PipeStageAlias(this, alias_name, stage);
+        stage_aliases.put(alias_name, alias);
+    }
+    
+    @Override
+    public void addRegAlias(String real_name, String alias_name) {
+        IPipeReg reg = getPipeReg(real_name);
+        if (reg_aliases == null) reg_aliases = new HashMap<>();
+        IPipeReg alias = new PipeRegAlias(this, alias_name, reg);
+        reg_aliases.put(alias_name, alias);
+    }
+
+    
     @Override
     public IPipeStage getLocalPipeStage(String name) {
-        return stages.get(name);
+        IPipeStage stage = null;
+        if (stage_aliases != null) stage = stage_aliases.get(name);
+        if (stage == null) stage = stages.get(name);
+        return stage;
     }
-    
+
     @Override
     public IPipeReg getLocalPipeReg(String name) {
-        return registers.get(name);
+        IPipeReg reg = null;
+        if (reg_aliases != null) reg = reg_aliases.get(name);
+        if (reg == null) reg = registers.get(name);
+        return reg;
     }
     
+    
+    @Override
     public void addPipeStage(IPipeStage stage) {
         stages.put(stage.getName(), stage);
     }
     
+    @Override
     public void addPipeReg(IPipeReg reg) {
         registers.put(reg.getName(), reg);
     }
 
+    @Override
     public void connect(IPipeStage source_stage, IPipeReg target_reg) {
         source_stage.addOutputRegister(target_reg);
     }
     
+    @Override
     public void connect(IPipeReg source_reg, IPipeStage target_stage) {
         target_stage.addInputRegister(source_reg);
     }
@@ -72,15 +106,36 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     @Override
     public void initProperties() { }
 
-
     @Override
     public Map<String, IPipeStage> getLocalPipeStages() {
-        return stages;
+        if (stage_aliases == null) {
+            return stages;
+        } else {
+            if (stages == null) {
+                return stage_aliases;
+            } else {
+                Map<String, IPipeStage> new_stages = new HashMap<>();
+                new_stages.putAll(stages);
+                new_stages.putAll(stage_aliases);
+                return new_stages;
+            }
+        }
     }
 
     @Override
     public Map<String, IPipeReg> getLocalPipeRegs() {
-        return registers;
+        if (reg_aliases == null) {
+            return registers;
+        } else {
+            if (registers == null) {
+                return reg_aliases;
+            } else {
+                Map<String, IPipeReg> new_regs = new HashMap<>();
+                new_regs.putAll(registers);
+                new_regs.putAll(reg_aliases);
+                return new_regs;
+            }
+        }
     }
 
     @Override
@@ -112,6 +167,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
 //        initModule();
 //    }
     
+    @Override
     public IGlobals getGlobals() {
         IProperties props = getProperties();
         if (props instanceof IGlobals) {
@@ -122,6 +178,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     }
     
     
+    @Override
     public void resetProperties() {
         IProperties props = getProperties();
         if (props != null) props.clear();
@@ -129,6 +186,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     }
     
     
+    @Override
     public void reset() {
         resetProperties();
         
@@ -166,6 +224,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     }
     
     
+    @Override
     public Map<String,IPipeStage> getPipeStagesRecursive() {
         Map<String,IFunctionalUnit> children = getLocalChildUnits();
         if (children == null || children.size() == 0) {
@@ -197,6 +256,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         return recursiveStages;
     }
     
+    @Override
     public Map<String,IPipeReg> getPipeRegsRecursive() {
         Map<String,IFunctionalUnit> children = getLocalChildUnits();
         if (children == null || children.size() == 0) {
@@ -228,6 +288,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         return recursiveStages;
     }
     
+    @Override
     public IPipeStage getPipeStage(String name) {
         int first_dot = name.indexOf('.');
         if (first_dot < 0) {
@@ -245,6 +306,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         return child.getPipeStage(inner_name);
     }
  
+    @Override
     public IPipeReg getPipeReg(String name) {
         int first_dot = name.indexOf('.');
         if (first_dot < 0) {
@@ -257,6 +319,13 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         return child.getPipeReg(inner_name);
     }
     
+    @Override
+    public void connect(String stage1, String reg, String stage2) {
+        connect(stage1, reg);
+        connect(reg, stage2);
+    }
+    
+    @Override
     public void connect(String source_name, String target_name) {
         IFunctionalUnit module_src = null;
         IFunctionalUnit module_sink = null;
@@ -335,6 +404,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
      * @param name Name of new pipeline register
      * @param props String array of property names
      */
+    @Override
     public void createPipeReg(String name, String[] props) {
         IPipeReg pr = new PipelineRegister(this, name, props);
         this.addPipeReg(pr);
@@ -346,12 +416,14 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
      * 
      * @param name Name of new pipeline register
      */
+    @Override
     public void createPipeReg(String name) {
         IPipeReg pr = new PipelineRegister(this, name);
         this.addPipeReg(pr);
     }
     
     
+    @Override
     public void addForwardingSource(String name) {
         IModule parent = getParent();
         if (parent == null) {
@@ -360,6 +432,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         parent.addForwardingSource(getLocalName() + '.' + name);
     }
 
+    @Override
     public void addForwardingTarget(String name) {
         IModule parent = getParent();
         if (parent == null) {
@@ -369,6 +442,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     }
     
     
+    @Override
     public void clockProperties() {
         if (properties != null) {
             properties.advanceClock();

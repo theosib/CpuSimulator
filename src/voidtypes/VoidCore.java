@@ -72,5 +72,8 @@ public class VoidCore extends VoidModule implements ICpuCore {
 
     @Override
     public boolean isResultFloat(String pipe_reg_name) { return false; }
+
+    @Override
+    public List<IPipeStage> getStagePrintOrder() { return stagelist; }
     
 }

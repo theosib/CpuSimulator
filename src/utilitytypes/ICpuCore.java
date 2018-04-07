@@ -30,7 +30,15 @@ public interface ICpuCore extends IModule {
      * @return Ordered list of pipeline stages
      */
     public List<IPipeStage> getStageComputeOrder();
-
+    
+    /**
+     * Get a list of pipeline stages ordered by how they are connected to
+     * each other.
+     * 
+     * @return Ordered list of pipeline stages
+     */
+    public List<IPipeStage> getStagePrintOrder();
+    
     /**
      * Look up a pipeline register by name and return the destination 
      * architectural or physical register of the instruction in the slave

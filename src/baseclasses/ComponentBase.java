@@ -13,7 +13,8 @@ import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 
 /**
- *
+ * See utilitytypes/IComponent for documentation
+ * 
  * @author millerti
  */
 public abstract class ComponentBase implements IComponent {
@@ -26,7 +27,7 @@ public abstract class ComponentBase implements IComponent {
     public String getLocalName() { return name; }
     public String getName() { return getLocalName(); }
     
-    public static String getOnlyCaps(String str, String prefix) {
+    public static String computeOnlyCaps(String str, String prefix) {
         StringBuilder sb = new StringBuilder();
         for (int i=0; i<str.length(); i++) {
             char c = str.charAt(i);
@@ -50,20 +51,20 @@ public abstract class ComponentBase implements IComponent {
             if (to>=0 && (to+2)<name.length() && Character.isUpperCase(name.charAt(to+2))) {
                 String a = name.substring(0, to);
                 String b = name.substring(to+2);
-                return getOnlyCaps(a, "r") + "2" + getOnlyCaps(b, "");
+                return computeOnlyCaps(a, "r") + "2" + computeOnlyCaps(b, "");
             } else {
-                return getOnlyCaps(name, "r");
+                return computeOnlyCaps(name, "r");
             }
         } else if (this instanceof IPipeStage) {
-            return getOnlyCaps(name, "s");
+            return computeOnlyCaps(name, "s");
         } else if (this instanceof CpuCore) {
-            return getOnlyCaps(name, "");
+            return computeOnlyCaps(name, "");
         } else if (this instanceof IFunctionalUnit) {
-            return getOnlyCaps(name, "u");
+            return computeOnlyCaps(name, "u");
         } else if (this instanceof IModule) {
-            return getOnlyCaps(name, "m");
+            return computeOnlyCaps(name, "m");
         } else {
-            return getOnlyCaps(name, "");
+            return computeOnlyCaps(name, "");
         }
     }
     

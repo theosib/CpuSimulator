@@ -117,8 +117,6 @@ public class VoidStage extends VoidComponent implements IPipeStage {
     @Override
     public void doPostedForwarding(Latch input) {}
 
-    @Override
-    public void markExternalInput() {}
     
     @Override
     public String[] connectionsToStringArr() {
@@ -128,7 +126,12 @@ public class VoidStage extends VoidComponent implements IPipeStage {
 
     @Override
     public String getShortName() {
-        return ComponentBase.getOnlyCaps(getLocalName(), "s");
+        return ComponentBase.computeOnlyCaps(getLocalName(), "s");
     }
-    
+
+    @Override
+    public void setPrintOrder(int pos) {}
+
+    @Override
+    public int getPrintOrder() { return -1; }    
 }

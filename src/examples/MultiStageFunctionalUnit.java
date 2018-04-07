@@ -32,7 +32,9 @@ public class MultiStageFunctionalUnit extends FunctionalUnitBase {
 
     private static class MyMathUnit extends PipelineStageBase {
         public MyMathUnit(IModule parent) {
-            super(parent, "in:Math");
+            // For simplicity, we just call this stage "in".
+            super(parent, "in");
+//            super(parent, "in:Math");  // this would be fine too
         }
         
         @Override
@@ -65,17 +67,16 @@ public class MultiStageFunctionalUnit extends FunctionalUnitBase {
     public void createChildModules() {
         IFunctionalUnit child = new MultiStageDelayUnit(this, "Delay", 3);
         addChildUnit(child);
-        child.specifyExternalOutputReg("out");
+        addRegAlias("Delay.out", "out");
     }
 
     @Override
     public void createConnections() {
-        connect("in:Math", "MathToDelay");
-        connect("MathToDelay", "Delay");
+        connect("in", "MathToDelay", "Delay");
     }
 
     @Override
     public void specifyForwardingSources() {
-        addForwardingSource("Delay.out");
+        addForwardingSource("out");
     }
 }
