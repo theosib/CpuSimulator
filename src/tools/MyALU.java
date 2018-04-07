@@ -64,7 +64,7 @@ public class MyALU {
             case STORE:
                 throw new RuntimeException("Load/Store got into Execute");
                 
-            case MOVC:
+            case MOV:
                 result = input1;
                 break;
                 

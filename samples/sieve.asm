@@ -4,12 +4,12 @@
 
 
 
-    movc r10, 100           ; Select maximum value in list of primes
+    mov r10, 100           ; Select maximum value in list of primes
 
 
 
 ; Initialize list of numbers
-    movc r1, 0              ; Load R1 with zero
+    mov r1, 0              ; Load R1 with zero
 init_list:
     store r1, r1            ; Store the value of R1 in memory location R1
     add r1, r1, 1           ; Increment R1
@@ -17,13 +17,13 @@ init_list:
     bra lt, r2, init_list   ; Loop if counter < 100
 
     ; Mark 1 as not prime
-    movc r1, 0              ; Load R1 with zero
+    mov r1, 0              ; Load R1 with zero
     store r1, r1, 1         ; Store 0 in location 1 (R1+1)
 
 
 
 ; Outer loop:  Pick number whose multiples will be crossed out
-    movc r1, 2              ; Start with crossing out multiples of 2
+    mov r1, 2              ; Start with crossing out multiples of 2
 outer_loop:
     ; Skip inner loop if slot selected by R1 is already crossed out
     load r2, r1             ; Load slot indicated by R1 into R2
@@ -31,8 +31,8 @@ outer_loop:
     bra eq, r3, next_outer  ; If zero, branch to end of outer loop
 
 ; Inner loop:  Cross out multiples of R1
-    add r2, r1, 0           ; Copy (add zero to) R1 into R2
-    movc r4, 0              ; Put a zero into R4
+    mov r2, r1              ; Copy R1 into R2
+    mov r4, 0               ; Put a zero into R4
 inner_loop:
     add r2, r2, r1          ; Increment R2 by R1
     cmp r3, r2, r10         ; Compare R2 to R10, putting flags into R3
@@ -49,8 +49,8 @@ next_outer:
 
 
 ; Print loop:  Print out all list entries not crossed out
-    movc r1, 2              ; Start with 2
-    movc r4, 0              ; Put a zero into R4
+    mov r1, 2              ; Start with 2
+    mov r4, 0              ; Put a zero into R4
 print_loop:
     load r2, r1             ; Load value in slot indicated by R1
     cmp r3, r2, 0           ; Compare R2 to zero, putting flags into R3

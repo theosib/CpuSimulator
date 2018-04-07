@@ -12,43 +12,21 @@ package utilitytypes;
  */
 public enum EnumComparison {
     /*
-    Generally, comparisons are made by subtracting two numbers.  Based on
-    the condition code flags, a variety of comparisons can be made.  This
-    does not necessarily imply that your simulator must implement
-    exactly these condition flags or any condition flags.  Moreover, 
-    not all conditions will even be used.  To begin with, you only need to
-    support the following:
-    - EQ, NE, GT, GE, LT, LE
+    Generally, comparisons are made by subtracting two numbers.  
+    For the comparison we want to do, it is sufficient for compare
+    instuctions to be aliases for substract instructions.
     
-    Condition code flags are typically:
-    
-    Z - result is zero
-    N - result is negative
-    V - result has overflowed (result has wrong sign)
-    C - carry out (or inverse of borrow)
-    
-    The comparisons are as follows:
-    
-    EQ - operands are equal, Z=1
-    NE - not equal, Z=0
-    GT - signed greater than, (N & V & ~Z) | (~N & ~V & ~Z)
-    GE - signed greater than or equal, (N & V) | (~N & ~V)
-    LT - signed less than, (N & ~V) | (~N & V)
-    LE - signed less than or equal, Z | (N & ~V) | (~N & V)
-    HI - unsigned greater than, ~C & ~Z
-    LO - unsigned less than, C=1
-    HS - unsigned greater or equal, C=0
-    LS - unsigned less than or equal, C | Z
-    CC - carry clear, C=0
-    CS - carry set, C=1
-    PL - Not negative, N=0
-    MI - Negative, N=1
-    VC - No overflow, V=0
-    VS - Overflow, V=1
+    Comparisons to implement:
+    EQ - difference is zero
+    NE - difference is nonzero
+    GT - difference is greater than zero
+    GE - difference is zero or greater
+    LT - difference is negative
+    LE - difference is zero or negative
     NULL - Void comparison
     */
     
-    EQ, NE, GT, GE, LT, LE, HI, LO, HS, LS, CC, CS, PL, MI, VC, VS, NULL;
+    EQ, NE, GT, GE, LT, LE, NULL;
     
     public static EnumComparison fromString(String name) {
         name = name.trim().toUpperCase();

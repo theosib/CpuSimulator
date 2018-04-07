@@ -2,16 +2,16 @@
 
     ; Use R31 for function return address
     ; Use R30 as stack pointer
-    movc R30 1024
+    mov R30 1024
 
     ; Call subroutine to compute sine
-    movc r1 6.0
+    mov r1 6.0
     call r31 sine
     fout r0
 
 
     ; Call subroutine to compute sqrt
-    movc r1 2.0
+    mov r1 2.0
     call r31 sqrt
     fout r0
 
@@ -49,12 +49,12 @@ sqrt:
     sub r30 r30 1
     store r5 r30
 
-    add r2 r1 0
-    movc r3 1.0
+    mov r2 r1
+    mov r3 1.0
     
 sqrt_loop:
     fsub r4 r2 r3
-    fsub r5 r4 0.000001
+    fcmp r5 r4 0.000001
     bra le r5 sqrt_quit
 
     fadd r2 r2 r3
@@ -63,7 +63,7 @@ sqrt_loop:
     jmp sqrt_loop
 
 sqrt_quit:
-    add r0 r2 0     ; return value
+    mov r0 r2     ; return value
     ; Restore registers from stack
     load r5 r30
     add r30 r30 1
@@ -120,33 +120,33 @@ sine:
 
     ; Confine input value to between -PI and PI
 sine_gt_tau:
-    fsub r7 r1 3.141592653589793
+    fcmp r7 r1 3.141592653589793
     bra lt r7 sine_lt_ntau
-    add r1 r7 0
+    mov r1 r7
     jmp sine_gt_tau
 
 sine_lt_ntau:
-    fsub r7 r1 -3.141592653589793
+    fcmp r7 r1 -3.141592653589793
     bra gt r7 sine_init
-    add r1 r7 0
+    mov r1 r7
     jmp sine_lt_ntau
 
 
     ; Set up variables used in loop
 sine_init:
-    movc r2 1.0             ; r2=i
-    add r3 r1 0             ; r3=cur    integer add zero makes copy, even of float
-    movc r4 1.0             ; r4=acc
-    movc r5 1.0             ; r5=fact
-    add r6 r1 0             ; r6=pow
+    mov r2 1.0              ; r2=i
+    mov r3 r1               ; r3=cur
+    mov r4 1.0              ; r4=acc
+    mov r5 1.0              ; r5=fact
+    mov r6 r1               ; r6=pow
     fmul r9 r1 r1    
     fsub r9 0.0 r9          ; r9=-x*x
 
 sine_loop:
-    fsub r7 r2 100.0        ; compare r2 to 100
+    fcmp r7 r2 100.0        ; compare r2 to 100
     bra ge r7 sine_quit
     and r7 r4 0x7fffffff    ; r7=fabs(r4)
-    fsub r7 r7 0.00000001   ; compare
+    fcmp r7 r7 0.00000001   ; compare r7 to small value
     bra le r7 sine_quit
     
     fmul r7 r2 2.0          ; 2*i
@@ -161,7 +161,7 @@ sine_loop:
     jmp sine_loop
 
 sine_quit:
-    add r0 r3 0             ; return value is cur
+    mov r0 r3               ; return value is cur
     ; Restore clobbered registers from stack
     load r9 r30
     add r30 r30 1
