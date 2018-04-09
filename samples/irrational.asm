@@ -121,14 +121,14 @@ sine:
     ; Confine input value to between -PI and PI
 sine_gt_tau:
     fcmp r7 r1 3.141592653589793
-    bra lt r7 sine_lt_ntau
-    mov r1 r7
+    bra le r7 sine_lt_ntau
+    fsub r1 r1 6.283185307179586
     jmp sine_gt_tau
 
 sine_lt_ntau:
     fcmp r7 r1 -3.141592653589793
-    bra gt r7 sine_init
-    mov r1 r7
+    bra ge r7 sine_init
+    fadd r1 r1 6.283185307179586
     jmp sine_lt_ntau
 
 
