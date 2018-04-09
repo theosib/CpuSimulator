@@ -42,7 +42,7 @@ public interface IProperties {
     public void advanceClock();
 
     public void copyPropertiesFrom(IProperties source, Set<String> propertiesToCopy);
-    public void copyPropertiesFrom(IProperties source);
+    public void copyAllPropertiesFrom(IProperties source);
     
     public List<String> toStringList();
 }

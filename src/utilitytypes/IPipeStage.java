@@ -315,9 +315,9 @@ public interface IPipeStage extends IComponent {
      * retrieve operand values from the pipeline registers whose names
      * are values of those properties.
      * 
-     * IMPORTANT: It is important to call this method on a duplicate of the
-     * original input latch.  Generally, just make a duplcate of the latch
-     * at the top of the compute method.
+     * IMPORTANT: DO NOT call this on a duplicate of the input latch.
+     * The original latch must be updated so that forwarded values are
+     * retained in the in the input latch even under a stall condition.
      * 
      * @param input source register slave latch with forwarding tags
      */

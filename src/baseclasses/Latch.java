@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
+import utilitytypes.IProperties;
 import voidtypes.VoidInstruction;
 import voidtypes.VoidRegister;
 
@@ -256,7 +257,12 @@ public class Latch extends PropertiesContainer {
         copyPropertiesFrom(source, parent.getPropertiesList());
     }
     
-    public void copyAllPropertiesFrom(Latch source) {
+    /**
+     *
+     * @param source
+     */
+    @Override
+    public void copyAllPropertiesFrom(IProperties source) {
         if (invalid) return;
         copyPropertiesFrom(source, null);
     }

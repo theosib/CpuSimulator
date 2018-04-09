@@ -287,7 +287,7 @@ public class PropertiesContainer implements IProperties {
      * @param source
      */
     @Override
-    public void copyPropertiesFrom(IProperties source) {
+    public void copyAllPropertiesFrom(IProperties source) {
         copyPropertiesFrom(source, null);
     }
 

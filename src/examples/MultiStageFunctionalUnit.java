@@ -67,11 +67,11 @@ public class MultiStageFunctionalUnit extends FunctionalUnitBase {
     public void createChildModules() {
         IFunctionalUnit child = new MultiStageDelayUnit(this, "Delay", 3);
         addChildUnit(child);
-        addRegAlias("Delay.out", "out");
     }
 
     @Override
     public void createConnections() {
+        addRegAlias("Delay.out", "out");
         connect("in", "MathToDelay", "Delay");
     }
 

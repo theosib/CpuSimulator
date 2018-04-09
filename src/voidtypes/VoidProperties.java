@@ -87,7 +87,7 @@ public class VoidProperties implements IProperties {
     public void copyPropertiesFrom(IProperties source, Set<String> propertiesToCopy) {}
 
     @Override
-    public void copyPropertiesFrom(IProperties source) {}
+    public void copyAllPropertiesFrom(IProperties source) {}
 
     
     public static final List<String> strlist = Collections.unmodifiableList(new ArrayList<String>());
