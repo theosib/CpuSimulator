@@ -36,7 +36,7 @@ public class MyCpuCore extends CpuCore {
     public void runProgram() {
         properties.setProperty("running", true);
         while (properties.getPropertyBoolean("running")) {
-            Logger.out.println("Cycle number: " + cycle_number);
+            Logger.out.println("## Cycle number: " + cycle_number);
             advanceClock();
         }
     }
@@ -104,10 +104,8 @@ public class MyCpuCore extends CpuCore {
         addForwardingSource("ExecuteToWriteback");
         addForwardingSource("MemoryToWriteback");
         
-        // I could modify addForwardingSource to automatically figure out
-        // the output from a functional unit, but for now, we must specify
-        // the full path to registers that can be forwarded from.
-        addForwardingSource("MSFU.out");
+        // MSFU.specifyForwardingSources is where this forwarding source is added
+        // addForwardingSource("MSFU.out");
     }
 
     @Override

@@ -305,11 +305,11 @@ public class PropertiesContainer implements IProperties {
             Object value = ent.getValue();
             if (CpuSimulator.printPropertyUpdates) {
                 if (value == null) {
-                    Logger.out.println(ent.getKey() + " <- null");
+                    Logger.out.println("# " + ent.getKey() + " <- null");
                 } else if (value == DELETE) {
-                    Logger.out.println(ent.getKey() + " deleted");
+                    Logger.out.println("# " + ent.getKey() + " deleted");
                 } else {
-                    Logger.out.println(ent.getKey() + " <- " + ent.getValue());
+                    Logger.out.println("# " + ent.getKey() + " <- " + ent.getValue());
                 }
             }
             if (value == DELETE) {

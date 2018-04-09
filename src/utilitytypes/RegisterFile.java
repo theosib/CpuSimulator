@@ -117,7 +117,7 @@ public class RegisterFile implements IRegFile {
     public void advanceClock() {
         StringBuilder sb = null;
         if (CpuSimulator.printRegWrite && regUpdates.size() > 0) {
-            Logger.out.println("Applying " + regUpdates.size() + " register updates:");
+            Logger.out.println("# Applying " + regUpdates.size() + " register updates:");
         }
         for (RegUpdate upd : regUpdates) {
             if (CpuSimulator.printRegWrite) {

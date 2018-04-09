@@ -146,6 +146,28 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     }
     
     
+    private String commonPrefix(String a, String b) {
+        int alen = a.length();
+        int blen = b.length();
+        int i=0;
+        for (i=0; i<alen && i<blen; i++) {
+            if (a.charAt(i) != b.charAt(i)) {
+                while (i>0) {
+                    if (a.charAt(i-1) == '.') break;
+                    i--;
+                }
+                if (a.charAt(i) == '.') i++;
+                return a.substring(0, i);
+            }
+        }
+        return a.substring(0, i);
+    }
+    
+    private String repeatSpace(int len) {
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<len; i++) sb.append(' ');
+        return sb.toString();
+    }
         
     /**
      * Step the CPU by one clock cycle.
@@ -165,13 +187,19 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         // For diagnostic purposes, print out activity and status of every
         // pipeline stage.
         if (CpuSimulator.printStagesEveryCycle) {
+            String last_name = "";
             List<IPipeStage> stage_print_order = getStagePrintOrder();
             for (IPipeStage stage : stage_print_order) {
-                int depth = stage.getDepth();
-                String name = "";
-                for (int i=2; i<depth; i++) name += " ";
-                name += stage.getHierarchicalName();
-                Logger.out.printf("%-30s: %-40s %s\n", name, stage.getActivity(),
+                String name = stage.getHierarchicalName();
+                String prefix = commonPrefix(last_name, name);
+
+                last_name = name;
+                
+                int len_prefix = prefix.length();
+                String indent = repeatSpace(len_prefix);
+                name = indent + name.substring(len_prefix);
+                
+                Logger.out.printf("| %-30s: %-40s %s\n", name, stage.getActivity(),
                         stage.getStatus());
             }
         }        

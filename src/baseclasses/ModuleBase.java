@@ -333,6 +333,8 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         IPipeStage stage_sink = null;
         IPipeReg reg_src = null;
         IPipeReg reg_sink = null;
+        String src_type=null, dest_type=null;
+        String src_type2=null, dest_type2=null;
         
         module_src = getChildUnit(source_name);
         module_sink = getChildUnit(target_name);
@@ -345,8 +347,13 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
                         " must export exactly one register via getOutputPipeRegs");
             }
             reg_src = src_regs.values().iterator().next();
+            src_type = "Unit '" + module_src.getHierarchicalName() + "' output reg '" +
+                    reg_src.getLocalName() + "'";
         } else {
             reg_src = getPipeReg(source_name);
+            if (reg_src != null) {
+                src_type = "Pipeline reg '" + reg_src.getHierarchicalName() + "'";
+            }
         }
         
         if (module_sink != null) {
@@ -357,32 +364,56 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
                         " must export exactly one pipeline stage via getInputPipeStages");
             }
             stage_sink = dst_stages.values().iterator().next();
+            dest_type = "Unit '" + module_sink.getHierarchicalName() + "' input stage '" +
+                    stage_sink.getLocalName() + "'";
         } else {
             stage_sink = getPipeStage(target_name);
+            if (stage_sink != null) {
+                dest_type = "Pipeline stage '" + stage_sink.getHierarchicalName() + "'";
+            }
         }
         
         stage_src = getPipeStage(source_name);
+        if (stage_src != null) {
+            src_type2 = "Pipeline stage '" + stage_src.getHierarchicalName() + "'";
+            if (src_type != null) {
+                throw new RuntimeException("Ambiguous source name: \"" +
+                        src_type + "\" vs. \"" + src_type2 + "\"");
+            } else {
+                src_type = src_type2;
+            }
+        }
+        
         reg_sink = getPipeReg(target_name);
+        if (reg_sink != null) {
+            dest_type2 = "Pipeline reg '" + reg_sink.getHierarchicalName() + "'";
+            if (dest_type != null) {
+                throw new RuntimeException("Ambiguous target name: \"" +
+                        dest_type + "\" vs. \"" + dest_type2 + "\"");
+            } else {
+                dest_type = dest_type2;
+            }
+        }
         
         if (stage_src != null && reg_src != null) {
             throw new RuntimeException("Module " + getHierarchicalName() +
-                    ": source name " + source_name + 
-                    " matches both register and stage");
+                    ": source name '" + source_name + 
+                    "' matches both register and stage");
         }
         if (stage_src == null && reg_src == null) {
             throw new RuntimeException("Module " + getHierarchicalName() +
-                    ": source name " + source_name + 
-                    " matches matches no known register or stage");
+                    ": source name '" + source_name + 
+                    "' matches matches no known register or stage");
         }
         if (stage_sink != null && reg_sink != null) {
             throw new RuntimeException("Module " + getHierarchicalName() +
-                    ": target name " + target_name + 
-                    " matches both register and stage");
+                    ": target name '" + target_name + 
+                    "' matches both register and stage");
         }
         if (stage_sink == null && reg_sink == null) {
             throw new RuntimeException("Module " + getHierarchicalName() +
-                    ": target name " + target_name + 
-                    " matches matches no known register or stage");
+                    ": target name '" + target_name + 
+                    "' matches matches no known register or stage");
         }
 
         if (stage_src != null && reg_sink != null) {
@@ -391,8 +422,8 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
             connect(reg_src, stage_sink);
         } else {
             throw new RuntimeException("Module " + getHierarchicalName() +
-                    ": cannot connect " + source_name + " to " +
-                    target_name);
+                    ": cannot connect \"" +
+                    src_type + "\" to \"" + dest_type + "\"");
         }
     }
     

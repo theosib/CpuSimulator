@@ -243,7 +243,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             if (oper0reg >= 0 && regfile.isValid(oper0reg)) {
                 oper0.lookUpFromRegisterFile(regfile);
                 if (CpuSimulator.printForwarding) {
-                    Logger.out.printf("Reading %s=%s from regfile for %s oper0\n", 
+                    Logger.out.printf("# Reading %s=%s from regfile for %s oper0\n", 
                             oper0.getRegisterName(), oper0.getValueAsString(),
                             getHierarchicalName());
                 }
@@ -254,7 +254,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         if (src1reg >=0 && regfile.isValid(src1reg)) {
             src1.lookUpFromRegisterFile(regfile);
             if (CpuSimulator.printForwarding) {
-                Logger.out.printf("Reading %s=%s from regfile for %s src1\n", 
+                Logger.out.printf("# Reading %s=%s from regfile for %s src1\n", 
                         src1.getRegisterName(), src1.getValueAsString(),
                         getHierarchicalName());
             }
@@ -264,7 +264,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         if (src2reg >= 0 && regfile.isValid(src2reg)) {
             src2.lookUpFromRegisterFile(regfile);
             if (CpuSimulator.printForwarding) {
-                Logger.out.printf("Reading %s=%s from regfile for %s src2\n", 
+                Logger.out.printf("# Reading %s=%s from regfile for %s src2\n", 
                         src2.getRegisterName(), src2.getValueAsString(),
                         getHierarchicalName());
             }
@@ -354,7 +354,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
                     operArray[sn].setValue(value, isfloat);
 
                     if (CpuSimulator.printForwarding) {
-                        Logger.out.printf("Forwarding %s=%s from %s to %s of %s\n", 
+                        Logger.out.printf("# Forwarding %s=%s from %s to %s of %s\n", 
                                 srcRegName, oper.getValueAsString(),
                                 srcFoundIn, operName,
                                 getHierarchicalName());
@@ -414,7 +414,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             Operand oper0 = ins.getOper0();
             oper0.setValue(oper0val, isfloat);
             if (CpuSimulator.printForwarding) {
-                Logger.out.printf("Forwarding %s=%s from %s to oper0 of %s\n", 
+                Logger.out.printf("# Forwarding %s=%s from %s to oper0 of %s\n", 
                         oper0.getRegisterName(), oper0.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }
@@ -431,7 +431,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             Operand src1 = ins.getSrc1();
             src1.setValue(source1, isfloat);
             if (CpuSimulator.printForwarding) {
-                Logger.out.printf("Forwarding %s=%s from %s to src1 of %s\n", 
+                Logger.out.printf("# Forwarding %s=%s from %s to src1 of %s\n", 
                         src1.getRegisterName(), src1.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }
@@ -448,7 +448,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             Operand src2 = ins.getSrc2();
             src2.setValue(source2, isfloat);
             if (CpuSimulator.printForwarding) {
-                Logger.out.printf("Forwarding %s=%s from %s to src2 of %s\n", 
+                Logger.out.printf("# Forwarding %s=%s from %s to src2 of %s\n", 
                         src2.getRegisterName(), src2.getValueAsString(),
                         pipe_reg_name, getHierarchicalName());
             }

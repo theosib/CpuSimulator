@@ -116,7 +116,7 @@ public class AllMyStages {
                 branch_wait = true;
             }
             if (branch_state_decode != GlobalData.BRANCH_STATE_NULL) {
-                Logger.out.println("branch state resolved");
+//                Logger.out.println("branch state resolved");
                 globals.setClockedProperty("branch_state_fetch", GlobalData.BRANCH_STATE_NULL);
                 globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
                 branch_wait = false;
@@ -436,7 +436,7 @@ public class AllMyStages {
                         String operName = PipelineStageBase.operNames[sn];
                         String srcFoundIn = input.getPropertyString(propname);
                         String srcRegName = operArray[sn].getRegisterName();
-                        Logger.out.printf("Posting forward %s from %s to %s next stage\n", 
+                        Logger.out.printf("# Posting forward %s from %s to %s next stage\n", 
                                 srcRegName,
                                 srcFoundIn, operName);
                     }
