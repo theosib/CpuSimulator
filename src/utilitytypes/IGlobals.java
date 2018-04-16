@@ -33,4 +33,5 @@ public interface IGlobals extends IProperties {
     public void loadProgram(InstructionSequence seq);
     public IRegFile getRegisterFile();
     public void advanceClock();
+    public IRegFile getPropertyRegisterFile(String name);
 }

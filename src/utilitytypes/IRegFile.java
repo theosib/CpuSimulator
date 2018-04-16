@@ -10,6 +10,27 @@ package utilitytypes;
  * @author millerti
  */
 public interface IRegFile {
+
+    // Per-register status flags
+    public static final int FLAG_INVALID = 1;
+    public static final int FLAG_FLOAT = 2;
+    public static final int FLAG_USED = 4;
+    public static final int FLAG_RENAMED = 8;
+    
+    public static final int SET_VALUE = 128;
+    public static final int SET_INVALID = 1;
+    public static final int SET_FLOAT = 2;
+    public static final int SET_USED = 4;
+    public static final int SET_RENAMED = 8;
+
+    public static final int CLEAR_INVALID = 1;
+    public static final int CLEAR_FLOAT = 2;
+    public static final int CLEAR_USED = 4;
+    public static final int CLEAR_RENAMED = 8;
+    
+    
+    void markPhysical();
+    boolean isPhysical();
     
     /**
      * @param index
@@ -28,6 +49,15 @@ public interface IRegFile {
     default public void markValid(int index) { setInvalid(index, false); }
     default public void markInvalid(int index) { setInvalid(index, true); }
     public void markFloat(int index, boolean is_float);
+    
+    public boolean isUsed(int index);
+    public boolean isRenamed(int index);
+    public int getFlags(int index);
+    
+    public void markUsed(int index, boolean is_used);
+    public void markRenamed(int index, boolean is_renamed);
+    public void changeFlags(int index, int flags_to_set, int flags_to_clear);
+    
     
     public int numRegisters();
     
@@ -57,11 +87,9 @@ public interface IRegFile {
      * Modify a register without clock cycle delay.  Probably don't need this.
      * @param index
      * @param value
-     * @param is_invalid
-     * @param is_float
+     * @param flagsIn raw value of flags field
      */
-    public void setRegisterImmediately(int index, int value, 
-            boolean is_invalid, boolean is_float);
+    public void setRegisterImmediately(int index, int value, int flagsIn);
     
     /**
      * Set register value without changing any flags.

@@ -363,6 +363,7 @@ public class AllMyStages {
                     ins.setSrc2(Operand.newLiteralSource(1));
                     ins.setLabelTarget(VoidLabelTarget.getVoidLabelTarget());
                     d2e_output.setInstruction(ins);
+                    regfile.markInvalid(oper0.getRegisterNumber());
                     
                     globals.setClockedProperty("program_counter_takenbranch", value1);
                     globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);

@@ -23,7 +23,6 @@ import utilitytypes.RegisterFile;
  */
 public class GlobalData extends PropertiesContainer implements IGlobals {
     protected InstructionSequence program;
-    protected IRegFile regfile;
     
 
     @Override
@@ -45,9 +44,34 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
         this.setProperty("program_counter_takenbranch", (int)0);
         this.setProperty("branch_state_fetch", BRANCH_STATE_NULL);
         this.setProperty("branch_state_decode", BRANCH_STATE_NULL);
-        this.regfile = new RegisterFile(32);
+        
+        IRegFile regfile = new RegisterFile(32);
     }
 
+    /**
+     * Fetches the specified property by name, returning it as a RegisterFile.
+     * Throws exception on type mismatch.
+     * 
+     * @param name
+     * @return value
+     */
+    @Override
+    public IRegFile getPropertyRegisterFile(String name) {
+        if (properties == null) return null;
+        
+        Object p = properties.get(name);
+        if (p == null) return null;
+        
+        if (p instanceof RegisterFile) {
+            return (RegisterFile)p;
+        } else {
+            throw new java.lang.ClassCastException("Property " + name + 
+                    " cannot be converted from " +
+                    p.getClass().getName() + " to RegisterFile.");
+        }
+    }
+    
+    
     @Override
     public InstructionBase getInstructionAt(int pc_address) {
         return program.getInstructionAt(pc_address);
@@ -64,7 +88,7 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
 
     @Override
     public IRegFile getRegisterFile() {
-        return regfile;
+        return getPropertyRegisterFile("reg_file");
     }
     
     public void advanceClock() {

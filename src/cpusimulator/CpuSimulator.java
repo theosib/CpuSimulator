@@ -26,7 +26,7 @@ public class CpuSimulator {
      */
     public static void main(String[] args) throws IOException, Exception {
         InstructionSequence seq = new InstructionSequence();
-        seq.loadFile("samples/sieve.asm");
+        seq.loadFile("samples/irrational.asm");
         seq.printProgram();
         Logger.out.println();
         

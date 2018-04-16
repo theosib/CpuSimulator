@@ -9,6 +9,7 @@ import baseclasses.InstructionBase;
 import tools.InstructionSequence;
 import utilitytypes.IGlobals;
 import utilitytypes.IRegFile;
+import utilitytypes.RegisterFile;
 
 /**
  *
@@ -35,6 +36,11 @@ public class VoidGlobals extends VoidProperties implements IGlobals {
 
     @Override
     public IRegFile getRegisterFile() {
+        return VoidRegFile.getVoidRegFile();
+    }
+
+    @Override
+    public IRegFile getPropertyRegisterFile(String name) {
         return VoidRegFile.getVoidRegFile();
     }
 }

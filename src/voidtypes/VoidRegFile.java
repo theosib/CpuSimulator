@@ -58,9 +58,32 @@ public class VoidRegFile implements IRegFile {
     public void markFloat(int index, boolean is_float) {}
 
     @Override
-    public void setRegisterImmediately(int index, int value, boolean is_invalid, boolean is_float) {}
+    public void advanceClock() {}
 
     @Override
-    public void advanceClock() {}
-    
+    public boolean isUsed(int index) { return false; }
+
+    @Override
+    public boolean isRenamed(int index) { return false; }
+
+    @Override
+    public int getFlags(int index) { return 0; }
+
+    @Override
+    public void markUsed(int index, boolean is_used) { }
+
+    @Override
+    public void markRenamed(int index, boolean is_renamed) { }
+
+    @Override
+    public void changeFlags(int index, int flags_to_set, int flags_to_clear) { }
+
+    @Override
+    public void setRegisterImmediately(int index, int value, int flagsIn) { }    
+
+    @Override
+    public void markPhysical() {}
+
+    @Override
+    public boolean isPhysical() { return false; }
 }

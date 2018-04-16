@@ -15,33 +15,35 @@ import java.util.List;
  */
 public class RegisterFile implements IRegFile {
     protected final int[] values;
-    protected final boolean[] invalid;
-    protected final boolean[] isfloat;  // Used only for diagnostic purposes
+    protected final int[] flags;
+    boolean physical;
+    String prefix = "R";
     
-    protected static final int SET_VALUE = 1;
-    protected static final int SET_INVALID = 2;
-    protected static final int SET_FLOAT = 4;
-    protected static final int SET_ALL = 7;
+    @Override
+    public void markPhysical() {
+        physical = true;
+        prefix = "P";
+    }
+    @Override
+    public boolean isPhysical() {
+        return physical;
+    }
 
     @Override
-    public void setRegisterImmediately(int index, int value, boolean is_invalid, boolean is_float) {
+    public void setRegisterImmediately(int index, int value, int flagsIn) {
         values[index] = value;
-        invalid[index] = is_invalid;
-        isfloat[index] = is_float;
+        flags[index] = flagsIn;
     }
     
     protected static class RegUpdate {
         public final int index;
-        public final int flags;
+        public final int flags_set, flags_clear;
         public final int value;
-        public final boolean invalid;
-        public final boolean isfloat;
-        public RegUpdate(int ix, int val, boolean inv, boolean isf, int fl) {
+        public RegUpdate(int ix, int val, int fset, int fclear) {
             index = ix;
-            flags = fl;
+            flags_set = fset;
+            flags_clear = fclear;
             value = val;
-            invalid = inv;
-            isfloat = isf;
         }
     }
     
@@ -50,19 +52,41 @@ public class RegisterFile implements IRegFile {
     
     public RegisterFile(int num_registers) {
         values = new int[num_registers];
-        invalid = new boolean[num_registers];
-        isfloat = new boolean[num_registers];
+        flags = new int[num_registers];
     }
     
-    public boolean isInvalid(int index) { return invalid[index]; }
+    @Override
+    public boolean isInvalid(int index) { return (flags[index] & FLAG_INVALID) != 0; }
+    @Override
     public boolean isValid(int index) { return !isInvalid(index); }
-    public boolean isFloat(int index) { return isfloat[index]; }
+    @Override
+    public boolean isFloat(int index) { return (flags[index] & FLAG_FLOAT) != 0; }
+    @Override
+    public boolean isUsed(int index) { return (flags[index] & FLAG_USED) != 0; }
+    @Override
+    public boolean isRenamed(int index) { return (flags[index] & FLAG_RENAMED) != 0; }
+    @Override
+    public int getFlags(int index) { return flags[index]; }
     
+    @Override
     public void setInvalid(int index, boolean inv) { 
-        regUpdates.add(new RegUpdate(index, 0, inv, false, SET_INVALID));
+        regUpdates.add(new RegUpdate(index, 0, inv ? SET_INVALID : 0, inv ? 0 : CLEAR_INVALID));
     }
+    @Override
     public void markFloat(int index, boolean is_float) { 
-        regUpdates.add(new RegUpdate(index, 0, false, is_float, SET_FLOAT));
+        regUpdates.add(new RegUpdate(index, 0, is_float ? SET_FLOAT : 0, is_float ? 0 : CLEAR_FLOAT));
+    }
+    @Override
+    public void markUsed(int index, boolean is_used) {
+        regUpdates.add(new RegUpdate(index, 0, is_used ? SET_USED : 0, is_used ? 0 : CLEAR_USED));
+    }
+    @Override
+    public void markRenamed(int index, boolean is_renamed) {
+        regUpdates.add(new RegUpdate(index, 0, is_renamed ? SET_RENAMED : 0, is_renamed ? 0 : CLEAR_RENAMED));
+    }
+    @Override
+    public void changeFlags(int index, int flags_to_set, int flags_to_clear) {
+        regUpdates.add(new RegUpdate(index, 0, flags_to_set, flags_to_clear));
     }
     
     /**
@@ -70,42 +94,50 @@ public class RegisterFile implements IRegFile {
      * @param index
      * @return
      */
+    @Override
     public int getValueUnsafe(int index) { return values[index]; }
     
+    @Override
     public int getValue(int index) { 
         if (isInvalid(index)) {
-            throw new RuntimeException("Register R" + index + " is not valid");
+            throw new RuntimeException("Register " + prefix + index + " is not valid");
         }
         return values[index]; 
     }
     
+    @Override
     public float getValueAsFloat(int index) {
         int ivalue = getValue(index);
         if (!isFloat(index)) {
-            throw new RuntimeException("Register R" + index + " is not float");
+            throw new RuntimeException("Register " + prefix + index + " is not float");
         }
         return Float.intBitsToFloat(ivalue);
     }
     
+    @Override
     public void setValueUnsafe(int index, int value) {
-        regUpdates.add(new RegUpdate(index, value, false, false, SET_VALUE));
+        regUpdates.add(new RegUpdate(index, value, SET_VALUE, 0));
     }
     
+    @Override
     public void setIntValue(int index, int value) {
-        regUpdates.add(new RegUpdate(index, value, false, false, SET_ALL));
+        regUpdates.add(new RegUpdate(index, value, SET_VALUE, CLEAR_INVALID | CLEAR_FLOAT));
     }
     
+    @Override
     public void setFloatValue(int index, int value) {
-        regUpdates.add(new RegUpdate(index, value, false, true, SET_ALL));
+        regUpdates.add(new RegUpdate(index, value, SET_VALUE | SET_FLOAT, CLEAR_INVALID));
     }
 
+    @Override
     public void setFloatValue(int index, float value) {
         int ival = Float.floatToRawIntBits(value);
-        regUpdates.add(new RegUpdate(index, ival, false, true, SET_ALL));
+        regUpdates.add(new RegUpdate(index, ival, SET_VALUE | SET_FLOAT, CLEAR_INVALID));
     }
     
+    @Override
     public void setValue(int index, int value, boolean is_float) {
-        regUpdates.add(new RegUpdate(index, value, false, is_float, SET_ALL));
+        regUpdates.add(new RegUpdate(index, value, SET_VALUE | (is_float ? SET_FLOAT : 0), CLEAR_INVALID | (is_float ? 0 : CLEAR_FLOAT)));
     }
 
     @Override
@@ -122,44 +154,53 @@ public class RegisterFile implements IRegFile {
         for (RegUpdate upd : regUpdates) {
             if (CpuSimulator.printRegWrite) {
                 sb = new StringBuilder();
-                sb.append("   R").append(upd.index).append(':');
+                sb.append("   ").append(prefix).append(upd.index).append(':');
             }
 
-            if ((upd.flags & SET_FLOAT) != 0) {
-                isfloat[upd.index] = upd.isfloat;
-            }
+            flags[upd.index] |= upd.flags_set;
+            flags[upd.index] &= ~upd.flags_clear;
             
-            if ((upd.flags & SET_VALUE) != 0) {
+            if ((upd.flags_set & SET_VALUE) != 0) {
                 values[upd.index] = upd.value;
                 if (CpuSimulator.printRegWrite) {
                     sb.append(" VALUE=");
-                    if (isfloat[upd.index]) {
+                    if ((flags[upd.index] & FLAG_FLOAT) != 0) {
                         sb.append(Float.intBitsToFloat(upd.value));
                     } else {
                         sb.append(upd.value);
                     }
                 }
             }
-            if ((upd.flags & SET_INVALID) != 0) {
-                invalid[upd.index] = upd.invalid;
-                if (CpuSimulator.printRegWrite) {
-                    if (upd.invalid) {
+            if (CpuSimulator.printRegWrite) {
+                if (((upd.flags_set | upd.flags_clear) & SET_INVALID) != 0) {
+                    if ((flags[upd.index] & FLAG_INVALID) != 0) {
                         sb.append(" INVALID");
                     } else {
                         sb.append(" VALID");
                     }
                 }
-            }
-            if ((upd.flags & SET_FLOAT) != 0) {
-                isfloat[upd.index] = upd.isfloat;
-                if (CpuSimulator.printRegWrite) {
-                    if (upd.isfloat) {
+                if (((upd.flags_set | upd.flags_clear) & SET_FLOAT) != 0) {
+                    if ((flags[upd.index] & FLAG_FLOAT) != 0) {
                         sb.append(" FLOAT");
                     } else {
                         sb.append(" INT");
                     }
                 }
-            }
+                if (((upd.flags_set | upd.flags_clear) & SET_USED) != 0) {
+                    if ((flags[upd.index] & FLAG_USED) != 0) {
+                        sb.append(" USED");
+                    } else {
+                        sb.append(" FREE");
+                    }
+                }
+                if (((upd.flags_set | upd.flags_clear) & SET_RENAMED) != 0) {
+                    if ((flags[upd.index] & FLAG_RENAMED) != 0) {
+                        sb.append(" RENAMED");
+                    } else {
+                        sb.append(" UNRENAMED");
+                    }
+                }
+           }
             if (CpuSimulator.printRegWrite) {
                 Logger.out.println(sb.toString());
             }

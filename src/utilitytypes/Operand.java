@@ -25,9 +25,11 @@ public class Operand {
      */
     public static Operand newRegister(int regnum) {
         Operand s = new Operand();
+        s.orig_register_num = -1;
         s.register_num = regnum;
         s.valid_value = false;
         s.is_float = false;
+        s.is_renamed = false;
         return s;
     }
     
@@ -39,19 +41,23 @@ public class Operand {
      */
     public static Operand newLiteralSource(int value) {
         Operand s = new Operand();
+        s.orig_register_num = -1;
         s.register_num = -1;
         s.value = value;
         s.valid_value = true;
         s.is_float = false;
+        s.is_renamed = false;
         return s;
     }
 
     public static Operand newLiteralSource(int value, boolean isfloat) {
         Operand s = new Operand();
+        s.orig_register_num = -1;
         s.register_num = -1;
         s.value = value;
         s.valid_value = true;
         s.is_float = isfloat;
+        s.is_renamed = false;
         return s;
     }
     
@@ -63,10 +69,12 @@ public class Operand {
      */
     public static Operand newLiteralSource(float value) {
         Operand s = new Operand();
+        s.orig_register_num = -1;
         s.register_num = -1;
         s.value = Float.floatToRawIntBits(value);
         s.valid_value = true;
         s.is_float = true;
+        s.is_renamed = false;
         return s;
     }
     
@@ -78,6 +86,10 @@ public class Operand {
      */
     public static Operand newVoidOperand() {
         return VoidOperand.getVoidOperand();
+    }
+    
+    public boolean isRenamed() {
+        return is_renamed;
     }
     
     public boolean isRegister() {
@@ -170,11 +182,26 @@ public class Operand {
 
     public Operand duplicate() {
         Operand op = new Operand();
+        op.orig_register_num = this.orig_register_num;
         op.register_num = this.register_num;
         op.value        = this.value;
         op.valid_value  = this.valid_value;
         op.is_float     = this.is_float;
+        op.is_renamed   = this.is_renamed;
         return op;
+    }
+    
+    public void rename(int phys_reg_num) {
+        if (is_renamed) {
+            throw new RuntimeException("Register R" + orig_register_num + "/P" + register_num + " already renamed");
+        }
+        if (register_num < 0) {
+            throw new RuntimeException("Cannot rename a literal operand");
+        }
+        
+        orig_register_num = register_num;
+        register_num = phys_reg_num;
+        is_renamed = true;
     }
     
     public boolean isNull() { return !isRegister() && !hasValue(); }
@@ -185,15 +212,19 @@ public class Operand {
             return "#";
         } else if (rn == PC_REGNUM) {
             return "PC";
+        } else if (is_renamed) {
+            return "P" + rn;
         } else {
             return "R" + rn;
         }
     }
     
+    protected int orig_register_num;
     protected int register_num;
     protected int value;
     protected boolean valid_value;
     protected boolean is_float;     // Purely for diagnostic purposes
+    protected boolean is_renamed;   // Purely for diagnostic purposes
     protected Operand() {}
     
     @Override
