@@ -79,6 +79,6 @@ public class VoidInstruction extends InstructionBase {
     
     @Override
     public String toString() {
-        return "----: NULL";
+        return "";
     }
 }

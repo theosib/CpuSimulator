@@ -10,9 +10,11 @@ import baseclasses.PipelineStageBase;
 import baseclasses.CpuCore;
 import examples.MultiStageFunctionalUnit;
 import tools.InstructionSequence;
+import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
 import static utilitytypes.IProperties.*;
+import utilitytypes.IRegFile;
 import utilitytypes.Logger;
 import voidtypes.VoidRegister;
 

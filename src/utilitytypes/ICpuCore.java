@@ -15,6 +15,12 @@ import java.util.Set;
  */
 public interface ICpuCore extends IModule {
     public void advanceClock();    
+    public void incIssued();
+    public void incCompleted();
+    public void incDispatched();
+    public int numIssued();
+    public int numCompleted();
+    public int numDispatched();
 
     /**
      * Traverse the graph of pipeline elements and compute an optimal order

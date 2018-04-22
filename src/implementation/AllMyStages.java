@@ -14,6 +14,9 @@ import voidtypes.VoidLatch;
 import baseclasses.CpuCore;
 import baseclasses.Latch;
 import cpusimulator.CpuSimulator;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
 import static utilitytypes.EnumOpcode.*;
 import utilitytypes.ICpuCore;
 import utilitytypes.IGlobals;
@@ -95,7 +98,7 @@ public class AllMyStages {
             // CpuSimulator.printStagesEveryCycle is set to true.
             if (ins.isNull()) {
                 // Fetch is working on no instruction at no address
-                setActivity("----: NULL");
+                setActivity("");
             } else {            
                 // Since there is no input pipeline register, we have to inform
                 // the diagnostic helper code explicitly what instruction Fetch
@@ -141,7 +144,7 @@ public class AllMyStages {
         // sent in by Fetch, because it is the fall-through that we don't
         // want to execute.  This flag is set only for status reporting purposes.
         boolean squashing_instruction = false;
-        
+        boolean shutting_down = false;
 
         @Override
         public String getStatus() {
@@ -158,10 +161,14 @@ public class AllMyStages {
 //            "MemoryToWriteback"};
         
         @Override
-        public void compute() {
-            // Since this stage has multiple outputs, must read input(s) 
-            // explicitly
-            Latch input = this.readInput(0).duplicate();
+        public void compute(Latch input, Latch output) {
+            if (shutting_down) {
+                addStatusWord("Shutting down");
+                setActivity("");
+                return;
+            }
+            
+            input = input.duplicate();
             InstructionBase ins = input.getInstruction();
 
             // Default to no squashing.
@@ -177,8 +184,9 @@ public class AllMyStages {
                 //setActivity("----: NULL");
 //                globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
                 
-                // Squashing the fall-through instruction is "consuming" it, so we
-                // mustn't forget to consume it.
+                // Since we don't pass an instruction to the next stage,
+                // must explicitly call input.consume in the case that
+                // the next stage is busy.
                 input.consume();
                 return;
             }
@@ -295,8 +303,9 @@ public class AllMyStages {
 //                        Logger.out.println("Resolving branch not taken");
                     }
                     
-                    // Having completed execution of the BRA instruction, we must
-                    // explicitly indicate that it has been consumed.
+                    // Since we don't pass an instruction to the next stage,
+                    // must explicitly call input.consume in the case that
+                    // the next stage is busy.
                     input.consume();
                     // All done; return.
                     return;
@@ -323,8 +332,9 @@ public class AllMyStages {
                     globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
                     globals.setClockedProperty("decode_squash", true);
                     
-                    // Having completed execution of the JMP instruction, we must
-                    // explicitly indicate that it has been consumed.
+                    // Since we don't pass an instruction to the next stage,
+                    // must explicitly call input.consume in the case that
+                    // the next stage is busy.
                     input.consume();
                     return;
                     
@@ -350,7 +360,7 @@ public class AllMyStages {
                     // CALL also has a destination register, which is oper0.
                     // Before we can resolve the branch, we have to make sure
                     // that the return address can be passed to Writeback
-                    // through Execute.
+                    // through Execute before we go setting any globals.
                     if (!d2e_output.canAcceptWork()) return;
                     
                     // To get the return address into Writeback, we will
@@ -369,14 +379,15 @@ public class AllMyStages {
                     globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
                     globals.setClockedProperty("decode_squash", true);
                     
+                    // Do need to pass CALL to the next stage, so we do need
+                    // to stall if the next stage can't accept work, so we
+                    // do not explicitly consume the input here.  Since
+                    // this code already fills the output latch, we can
+                    // just quit. [hint for HW5]
+
                     d2e_output.write();
                     input.consume();
                     return;
-                    
-                    // Having completed execution of the JMP instruction, we must
-                    // explicitly indicate that it has been consumed.
-//                    input.consume();
-//                    return;
             }
             
             
@@ -429,6 +440,7 @@ public class AllMyStages {
                 }
             }
             
+            if (ins.getOpcode() == EnumOpcode.HALT) shutting_down = true;            
             
             if (CpuSimulator.printForwarding) {
                 for (int sn=0; sn<3; sn++) {
@@ -492,68 +504,30 @@ public class AllMyStages {
     }
     
 
-    /*** Memory Stage ***/
-    static class Memory extends PipelineStageBase {
-        public Memory(ICpuCore core) {
-            super(core, "Memory");
-        }
-
-        @Override
-        public void compute(Latch input, Latch output) {
-            if (input.isNull()) return;
-            doPostedForwarding(input);
-            InstructionBase ins = input.getInstruction();
-            setActivity(ins.toString());
-
-            Operand oper0 = ins.getOper0();
-            int oper0val = ins.getOper0().getValue();
-            int source1 = ins.getSrc1().getValue();
-            int source2 = ins.getSrc2().getValue();
-            
-            // The Memory stage no longer follows Execute.  It is an independent
-            // functional unit parallel to Execute.  Therefore we must perform
-            // address calculation here.
-            int addr = source1 + source2;
-            
-            int value = 0;
-            IGlobals globals = (GlobalData)getCore().getGlobals();
-            int[] memory = globals.getPropertyIntArray(MAIN_MEMORY);
-
-            switch (ins.getOpcode()) {
-                case LOAD:
-                    // Fetch the value from main memory at the address
-                    // retrieved above.
-                    value = memory[addr];
-                    output.setResultValue(value);
-                    output.setInstruction(ins);
-                    addStatusWord("Mem[" + addr + "]");
-                    break;
-                
-                case STORE:
-                    // For store, the value to be stored in main memory is
-                    // in oper0, which was fetched in Decode.
-                    memory[addr] = oper0val;
-                    addStatusWord("Mem[" + addr + "]=" + ins.getOper0().getValueAsString());
-                    return;
-                    
-                default:
-                    throw new RuntimeException("Non-memory instruction got into Memory stage");
-            }
-        }
-    }
-    
-
     /*** Writeback Stage ***/
     static class Writeback extends PipelineStageBase {
         public Writeback(CpuCore core) {
             super(core, "Writeback");
         }
+        
+        boolean shutting_down = false;
 
         @Override
         public void compute() {
-            IGlobals globals = (GlobalData)getCore().getGlobals();
+            List<String> doing = new ArrayList<String>();
+            
+            ICpuCore core = getCore();
+            IGlobals globals = (GlobalData)core.getGlobals();
             // Get register file and valid flags from globals
             IRegFile regfile = globals.getRegisterFile();
+            
+            if (shutting_down) {
+                Logger.out.println("disp=" + core.numDispatched() + " compl=" + core.numCompleted());
+                setActivity("Shutting down");
+            }
+            if (shutting_down && core.numCompleted() >= core.numDispatched()) {
+                globals.setProperty("running", false);
+            }
             
             // Writeback has multiple inputs, so we just loop over them
             int num_inputs = this.getInputRegisters().size();
@@ -565,6 +539,8 @@ public class AllMyStages {
                 if (input.isNull()) continue;
                 
                 InstructionBase ins = input.getInstruction();
+                if (ins.isValid()) core.incCompleted();
+                doing.add(ins.toString());
                 
                 if (ins.getOpcode().needsWriteback()) {
                     // By definition, oper0 is a register and the destination.
@@ -579,14 +555,16 @@ public class AllMyStages {
                     regfile.setValue(regnum, value, isfloat);
                 }
 
-                if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {
-                    globals.setProperty("running", false);
+                if (ins.getOpcode() == EnumOpcode.HALT) {
+                    shutting_down = true;
                 }
                 
                 // There are no outputs that could stall, so just consume
                 // all valid inputs.
                 input.consume();
             }
+            
+            setActivity(String.join("\n", doing));
         }
     }
 }

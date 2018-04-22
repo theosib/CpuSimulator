@@ -20,17 +20,6 @@
     ; other instructions are finished, so we just need to insert some NOPs.
     ; We won't need this when we have a reorder buffer, because we can execute
     ; HALT when it retires.
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
     halt
 
 

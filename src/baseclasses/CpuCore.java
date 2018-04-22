@@ -36,7 +36,10 @@ import utilitytypes.Logger;
  */
 public abstract class CpuCore extends ModuleBase implements ICpuCore {
     public int cycle_number = 0;
-
+    public int instructions_issued = 0;
+    public int instructions_completed = 0;
+    public int instructions_dispatched = 0;
+    
     public CpuCore(IModule parent, String name) {
         super(parent, name);
     }
@@ -44,6 +47,20 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     @Override
     public int getCycleNumber() { return cycle_number; }
     
+    @Override
+    public void incIssued() { instructions_issued++; }
+    @Override
+    public void incCompleted() { instructions_completed++; }
+    @Override
+    public void incDispatched() { instructions_dispatched++; }
+    @Override
+    public int numIssued() { return instructions_issued; }
+    @Override
+    public int numCompleted() { return instructions_completed; }
+    @Override
+    public int numDispatched() { return instructions_dispatched; }
+    
+
     protected Set<IPipeStage> known_stages;
     protected List<IPipeStage> stage_topo_order;
     protected List<IPipeStage> stage_print_order;
@@ -199,8 +216,18 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 String indent = repeatSpace(len_prefix);
                 name = indent + name.substring(len_prefix);
                 
-                Logger.out.printf("| %-30s: %-40s %s\n", name, stage.getActivity(),
-                        stage.getStatus());
+                String act = stage.getActivity();
+                if (act.indexOf('\n') >= 0) {
+                    String[] acts = act.split("\n");
+                    Logger.out.printf("| %-30s: %-40s %s\n", name, acts[0],
+                            stage.getStatus());
+                    for (int i=1; i<acts.length; i++) {
+                        Logger.out.printf("| %-30s  %-40s %s\n", "", acts[i], "");
+                    }
+                } else {
+                    Logger.out.printf("| %-30s: %-40s %s\n", name, act,
+                            stage.getStatus());
+                }
             }
         }        
         

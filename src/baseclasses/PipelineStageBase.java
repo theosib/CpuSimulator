@@ -533,7 +533,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
             } else if (output_doing.size() > 0) {
                 setActivity(String.join(", ", output_doing));
             } else {
-                setActivity("----: NULL");
+                setActivity("");
             }
         }
         
