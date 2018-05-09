@@ -200,5 +200,10 @@ public class PipeStageAlias extends ComponentBase implements IPipeStage {
     public int getPrintOrder() {
         return original.getPrintOrder();
     }
+
+    @Override
+    public void disableTwoInputCompute() {
+        original.disableTwoInputCompute();
+    }
     
 }

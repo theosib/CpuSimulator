@@ -18,6 +18,7 @@ import utilitytypes.IGlobals;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
+import utilitytypes.IProperties;
 import utilitytypes.IRegFile;
 import utilitytypes.Logger;
 import utilitytypes.Operand;
@@ -36,6 +37,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     protected Set<String> input_doing;
     protected Set<String> output_doing;
     protected Set<String> status_words;
+    protected boolean twoInputComputeDisabled = false;
     
     @Override
     public void clearStatus() {
@@ -57,7 +59,6 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
     private int print_order = -1;
     @Override
     public void setPrintOrder(int pos) { 
-//        System.out.println(getHierarchicalName() + " order " + pos);
         print_order = pos; 
     }
     @Override
@@ -214,6 +215,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         }
     }
     
+    public static final String[] operNames = {"oper0", "src1", "src2"};
+    
     /**
      * When using this method, be sure to make a duplicate of the input Latch
      * at the top of the compute method!
@@ -229,7 +232,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         
         // Get the register file and valid flags
         IGlobals globals = getCore().getGlobals();
-        IRegFile regfile = globals.getRegisterFile();
+        IRegFile prf = globals.getRegisterFile();
+        IRegFile arf = globals.getPropertyRegisterFile(IProperties.ARCH_REG_FILE);
 
         EnumOpcode opcode = ins.getOpcode();
         boolean oper0src = opcode.oper0IsSource();
@@ -238,40 +242,29 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         Operand src1  = ins.getSrc1();
         Operand src2  = ins.getSrc2();
         
-        if (oper0src) {
-            int oper0reg = oper0.getRegisterNumber();
-            if (oper0reg >= 0 && regfile.isValid(oper0reg)) {
-                oper0.lookUpFromRegisterFile(regfile);
+        Operand[] ops = {oper0, src1, src2};
+        if (!oper0src) ops[0] = null;
+        
+        for (int i=0; i<3; i++) {
+            Operand op = ops[i];
+            if (op == null) continue;
+            
+            int regnum = op.getRegisterNumber();
+            boolean phys = op.isRenamed();
+            IRegFile regfile = phys ? prf : arf;
+            String rftype = phys ? "PRF" : "ARF";
+            
+            if (regnum>=0 && regfile.isValid(regnum)) {
+                op.lookUpFromRegisterFile(regfile);
                 if (CpuSimulator.printForwarding) {
-                    Logger.out.printf("# Reading %s=%s from regfile for %s oper0\n", 
-                            oper0.getRegisterName(), oper0.getValueAsString(),
-                            getHierarchicalName());
+                    Logger.out.printf("# Reading %s=%s from %s for %s %s\n", 
+                            oper0.getRegisterName(), oper0.getValueAsString(), rftype,
+                            getHierarchicalName(), operNames[i]);
                 }
-            }
-        }
-        
-        int src1reg = src1.getRegisterNumber();
-        if (src1reg >=0 && regfile.isValid(src1reg)) {
-            src1.lookUpFromRegisterFile(regfile);
-            if (CpuSimulator.printForwarding) {
-                Logger.out.printf("# Reading %s=%s from regfile for %s src1\n", 
-                        src1.getRegisterName(), src1.getValueAsString(),
-                        getHierarchicalName());
-            }
-        }
-        
-        int src2reg = src2.getRegisterNumber();
-        if (src2reg >= 0 && regfile.isValid(src2reg)) {
-            src2.lookUpFromRegisterFile(regfile);
-            if (CpuSimulator.printForwarding) {
-                Logger.out.printf("# Reading %s=%s from regfile for %s src2\n", 
-                        src2.getRegisterName(), src2.getValueAsString(),
-                        getHierarchicalName());
             }
         }
     }
     
-    public static final String[] operNames = {"oper0", "src1", "src2"};
     
     /**
      * When using this method, be sure to make a duplicate of the input Latch
@@ -489,7 +482,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         // Allocate a new latch to hold the output of this pipeline stage,
         // which is then passed to the succeeding pipeline register.
         
-        if (num_inputs <= 1 && num_outputs <= 1) {
+        if (num_inputs <= 1 && num_outputs <= 1 && !twoInputComputeDisabled) {
             // Fetch the contents of the slave latch of the preceding pipeline
             // register.
             Latch input;
@@ -503,6 +496,8 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
                 currently_doing = input.getInstruction().toString();
             }
 
+            // Allocate a new latch to hold the output of this pipeline stage,
+            // which is then passed to the succeeding pipeline register.
             Latch output;
             if (num_outputs == 0) {
                 output = VoidLatch.getVoidLatch();
@@ -554,7 +549,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
      * @param output -- data to next pipeline stage
      */
     protected void compute(Latch input, Latch output) {
-        throw new java.lang.UnsupportedOperationException("compute(Latch, Latch) needs to be implemented");
+        throw new java.lang.UnsupportedOperationException("compute(Latch, Latch) needs to be implemented for " + getHierarchicalName());
     }
 
     /**
@@ -580,7 +575,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
      * See documentation on IPipeStage.evaluate().
      */
     protected void compute() {
-        throw new java.lang.UnsupportedOperationException("compute() needs to be implemented");
+        throw new java.lang.UnsupportedOperationException("compute() needs to be implemented for " + getHierarchicalName());
     }
     
     /**
@@ -619,27 +614,7 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
 //    }
     public PipelineStageBase(IModule parent, String name) {
         super(parent, name);
-    }
-        
-    
-//    @Override
-//    public void printHierarchy(int depth, IModule first) {
-//        IModule myparent = getParent();
-//        //IModule grandparent = (myparent==null) ? null : (myparent.getParent());
-//        
-//        StringBuilder sb = new StringBuilder();
-//        for (int i=0; i<depth; i++) {
-//            sb.append("   ");
-//        }
-//        
-//        int num_inputs = input_regs.size();
-//        sb.append('(');
-//        for (int i=0; i<num_inputs; i++) {
-//            
-//        }
-//        
-//    }
-    
+    }    
     
     private String parentheticalList(List<IPipeReg> list, IModule myparent) {
         if (list == null) return "()";
@@ -672,9 +647,10 @@ public class PipelineStageBase extends ComponentBase implements IPipeStage {
         cols[2] = parentheticalList(output_regs, myparent);
         
         return cols;
-    }
-    
-    
+    }    
 
-    
+    @Override
+    public void disableTwoInputCompute() {
+        twoInputComputeDisabled = true;
+    }
 }

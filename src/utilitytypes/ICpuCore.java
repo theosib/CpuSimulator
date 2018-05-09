@@ -21,7 +21,10 @@ public interface ICpuCore extends IModule {
     public int numIssued();
     public int numCompleted();
     public int numDispatched();
-
+    
+    public void putRetiredSet(Set<Integer> ret_ixs);
+    public Set<Integer> getRetiredSet();
+    
     /**
      * Traverse the graph of pipeline elements and compute an optimal order
      * in which pipeline stages are to be evaluated.

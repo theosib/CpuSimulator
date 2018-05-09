@@ -34,4 +34,5 @@ public interface IGlobals extends IProperties {
     public IRegFile getRegisterFile();
     public void advanceClock();
     public IRegFile getPropertyRegisterFile(String name);
+    public InstructionBase[] getPropertyInstructionArr(String name);
 }

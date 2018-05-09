@@ -102,7 +102,8 @@ public class PropertiesContainer implements IProperties {
     }
 
     /**
-     * Store given value into container under the given name.
+     * Post a property change to not take effect until advanceClock is called
+     * on the properties container.
      * 
      * @param name
      * @param val
@@ -120,6 +121,12 @@ public class PropertiesContainer implements IProperties {
         properties.remove(name);
     }
     
+    /**
+     * Queue a property to be deleted when advanceClock is called.  A better
+     * name for this might be "deletePropertyClocked".
+     * 
+     * @param name 
+     */
     @Override
     public void deleteClockedProperty(String name) {
         alloc_clocked();
@@ -297,6 +304,9 @@ public class PropertiesContainer implements IProperties {
         return properties.size();
     }
 
+    /**
+     * Apply all queued property changes.
+     */
     @Override
     public void advanceClock() {
         if (clocked_properties == null) return;

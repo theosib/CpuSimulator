@@ -134,4 +134,7 @@ public class VoidStage extends VoidComponent implements IPipeStage {
 
     @Override
     public int getPrintOrder() { return -1; }    
+
+    @Override
+    public void disableTwoInputCompute() { }
 }

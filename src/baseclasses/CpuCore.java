@@ -11,6 +11,7 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,8 +61,18 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     @Override
     public int numDispatched() { return instructions_dispatched; }
     
+    public void putRetiredSet(Set<Integer> ret_ixs) {
+        properties.setProperty("retired_rob_indexes", ret_ixs);
+    }
+    public Set<Integer> getRetiredSet() {
+        Object p = properties.getPropertyObject("retired_rob_indexes");
+        if (p == null) return null;
+        return (Set<Integer>)p;
+    }
+    
 
     protected Set<IPipeStage> known_stages;
+    protected Set<IPipeStage> print_stages;
     protected List<IPipeStage> stage_topo_order;
     protected List<IPipeStage> stage_print_order;
     
@@ -72,12 +83,12 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     public List<IPipeStage> getStagePrintOrder() { return stage_print_order; }
 
     
-    private void stageTopologicalOrder(IPipeStage stage) {
+    private int stageTopologicalOrder(IPipeStage stage) {
         stage = stage.getOriginal();
         known_stages.add(stage);
         
         int this_order = stage.getTopoOrder();
-//        Logger.out.println("Stage " + stage.getHierarchicalName() + " has order " + this_order);
+        int highest_order = this_order;
         
         int new_in_order = this_order - 1;
         List<IPipeReg> inputs = stage.getInputRegisters();
@@ -87,7 +98,8 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 int old_in_order = in_stage.getTopoOrder();
                 if (old_in_order > new_in_order) {
                     in_stage.setTopoOrder(new_in_order);
-                    stageTopologicalOrder(in_stage);
+                    int horder = stageTopologicalOrder(in_stage);
+                    if (horder > highest_order) highest_order = horder;
                 }
             }
         }
@@ -100,15 +112,30 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 int old_out_order = out_stage.getTopoOrder();
                 if (old_out_order < new_out_order) {
                     out_stage.setTopoOrder(new_out_order);
-                    stageTopologicalOrder(out_stage);
+                    int horder = stageTopologicalOrder(out_stage);
+                    if (horder > highest_order) highest_order = horder;
+                } else {
+                    if (old_out_order > highest_order) highest_order = old_out_order;
                 }
             }
         }
+        
+        return highest_order;
     }
     
             
+    /**
+     * This just sorts the order in which pipeline stages are printed, so that
+     * execution traces are easier to read.
+     * 
+     * @param parent
+     * @param index
+     * @param start
+     * @return 
+     */
     private int sortPrintOrder(IModule parent, int index, IPipeStage start) {
         start.setPrintOrder(index++);
+        print_stages.add(start);
         
         List<IPipeReg> outputs = start.getOutputRegisters();
         if (outputs==null || outputs.size()==0) return index;
@@ -143,26 +170,57 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     
     @Override
     public void stageTopologicalSort(IPipeStage first_stage) {
+        Set<IPipeStage> all_stages = new HashSet<IPipeStage>(getPipeStagesRecursive().values());
         known_stages = new HashSet<>();
         
-        first_stage.setTopoOrder(0);
-        stageTopologicalOrder(first_stage);
+        int start_top_order = 0;
+        IPipeStage start_stage = first_stage;
+        for (;;) {
+            start_stage.setTopoOrder(start_top_order);
+            start_top_order = stageTopologicalOrder(start_stage) + 1;
+            all_stages.removeAll(known_stages);
+            if (all_stages.size() > 0) {
+                start_stage = all_stages.iterator().next();
+            } else {
+                break;
+            }
+        }
         
         stage_topo_order = new ArrayList(known_stages);
         stage_topo_order.sort((IPipeStage a, IPipeStage b) -> b.getTopoOrder() - a.getTopoOrder());
         
         
         
-        stage_print_order = new ArrayList(known_stages);
-        sortPrintOrder(this, 0, first_stage);
-        stage_print_order.sort((IPipeStage a, IPipeStage b) -> a.getPrintOrder() - b.getPrintOrder());
         
-//        for (IPipeStage stage : stage_print_order) {
-//            System.out.println(stage.getPrintOrder() + ": " + stage.getHierarchicalName());
-//        }
+        all_stages = new HashSet<IPipeStage>(getPipeStagesRecursive().values());
+        print_stages = new HashSet<>();
+        
+        int start_print_order = 0;
+        start_stage = first_stage;
+        for (;;) {
+            start_print_order = sortPrintOrder(this, start_print_order, start_stage) + 1;
+            all_stages.removeAll(print_stages);
+            if (all_stages.size() > 0) {
+                start_stage = all_stages.iterator().next();
+            } else {
+                break;
+            }
+        }
+        
+        stage_print_order = new ArrayList(print_stages);
+        stage_print_order.sort((IPipeStage a, IPipeStage b) -> a.getPrintOrder() - b.getPrintOrder());
     }
     
     
+    /**
+     * Given two hierarchical names, return the characters they have in common
+     * at the start of the strings.  But also make sure that the common
+     * prefix ends with a dot.
+     * 
+     * @param a
+     * @param b
+     * @return 
+     */
     private String commonPrefix(String a, String b) {
         int alen = a.length();
         int blen = b.length();
@@ -219,13 +277,13 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
                 String act = stage.getActivity();
                 if (act.indexOf('\n') >= 0) {
                     String[] acts = act.split("\n");
-                    Logger.out.printf("| %-30s: %-40s %s\n", name, acts[0],
+                    Logger.out.printf("| %-30s: %-50s %s\n", name, acts[0],
                             stage.getStatus());
                     for (int i=1; i<acts.length; i++) {
-                        Logger.out.printf("| %-30s  %-40s %s\n", "", acts[i], "");
+                        Logger.out.printf("| %-30s  %-50s %s\n", "", acts[i], "");
                     }
                 } else {
-                    Logger.out.printf("| %-30s: %-40s %s\n", name, act,
+                    Logger.out.printf("| %-30s: %-50s %s\n", name, act,
                             stage.getStatus());
                 }
             }
@@ -369,26 +427,8 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         }
     }
 
-//    // List of pipeline stages to be automatically told to compute
-//    protected Map<String, IPipeStage> flattened_stages;
-    
     // List of pipeline registrs to be automatically clocked
     protected Map<String, IPipeReg> flattened_registers;
-
-//    @Override
-//    public IPipeStage getPipeStage(String name) {
-//        return flattened_stages.get(name);
-//    }
-
-//    @Override
-//    public IPipeReg getPipeReg(String name) {
-//        return flattened_registers.get(name);
-//    }
-
-//    @Override
-//    public void computeFlattenedPipeStageMap() {
-//        flattened_stages = getPipeStagesRecursive();
-//    }
 
 
     public void computeFlattenedPipeRegMap() {

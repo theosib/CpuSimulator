@@ -250,6 +250,11 @@ public interface IPipeReg extends IComponent {
     
     public boolean isResultFloat();
     
+    /**
+     * If this implementation of IPipeReg is actually an alias, return a
+     * reference to the original.
+     * @return
+     */
     default public IPipeReg getOriginal() { return this; }
     
 }

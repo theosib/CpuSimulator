@@ -173,6 +173,7 @@ public class InstructionSequence<T extends InstructionBase> {
         int value = 0;
         boolean is_float = false;
         if (field.indexOf('.')>0) {
+            // Parse a floating point literal
             if (field.charAt(0)=='#') field = field.substring(1);
             float value_f = Float.parseFloat(field);
             value = Float.floatToRawIntBits(value_f);
@@ -307,6 +308,7 @@ public class InstructionSequence<T extends InstructionBase> {
                 setRegisterOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("[-]?[0-9]+[.][0-9]+")) {
+                // This regex matches a floating point literal.
                 setLiteralOperand(ins, num_data_operands, field);
                 num_data_operands++;
             } else if (field.matches("0x[0-9A-Fa-f]+")) {

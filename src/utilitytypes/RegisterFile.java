@@ -34,12 +34,17 @@ public class RegisterFile implements IRegFile {
         values[index] = value;
         flags[index] = flagsIn;
     }
-    
-    protected static class RegUpdate {
+
+
+
+    protected class RegUpdate {
         public final int index;
         public final int flags_set, flags_clear;
         public final int value;
         public RegUpdate(int ix, int val, int fset, int fclear) {
+            if (ix < 0 || ix >= values.length) {
+                throw new java.lang.ArrayIndexOutOfBoundsException(ix);
+            }
             index = ix;
             flags_set = fset;
             flags_clear = fclear;
@@ -64,9 +69,15 @@ public class RegisterFile implements IRegFile {
     @Override
     public boolean isUsed(int index) { return (flags[index] & FLAG_USED) != 0; }
     @Override
-    public boolean isRenamed(int index) { return (flags[index] & FLAG_RENAMED) != 0; }
+    public boolean isRenamed(int index) { return (flags[index] & FLAG_UNMAPPED) != 0; }
+    @Override
+    public boolean isRetired(int index) { return (flags[index] & FLAG_RETIRED) != 0; }
+    @Override
+    public boolean hasFault(int index) { return (flags[index] & FLAG_FAULT) != 0; }
     @Override
     public int getFlags(int index) { return flags[index]; }
+
+    
     
     @Override
     public void setInvalid(int index, boolean inv) { 
@@ -82,11 +93,24 @@ public class RegisterFile implements IRegFile {
     }
     @Override
     public void markRenamed(int index, boolean is_renamed) {
-        regUpdates.add(new RegUpdate(index, 0, is_renamed ? SET_RENAMED : 0, is_renamed ? 0 : CLEAR_RENAMED));
+        regUpdates.add(new RegUpdate(index, 0, is_renamed ? SET_UNMAPPED : 0, is_renamed ? 0 : CLEAR_UNMAPPED));
+    }
+    @Override
+    public void markRetired(int index, boolean is_retired) {
+        regUpdates.add(new RegUpdate(index, 0, is_retired ? SET_RETIRED : 0, is_retired ? 0 : CLEAR_RETIRED));
+    }
+    @Override
+    public void markFault(int index, boolean has_fault) {
+        regUpdates.add(new RegUpdate(index, 0, has_fault ? SET_FAULT : 0, has_fault ? 0 : CLEAR_FAULT));
     }
     @Override
     public void changeFlags(int index, int flags_to_set, int flags_to_clear) {
         regUpdates.add(new RegUpdate(index, 0, flags_to_set, flags_to_clear));
+    }
+    @Override
+    public void markNewlyAllocated(int index) {
+        changeFlags(index, IRegFile.SET_USED | IRegFile.SET_INVALID, 
+                    IRegFile.CLEAR_FLOAT | IRegFile.CLEAR_UNMAPPED | IRegFile.CLEAR_RETIRED | IRegFile.CLEAR_FAULT);
     }
     
     /**
@@ -152,11 +176,15 @@ public class RegisterFile implements IRegFile {
             Logger.out.println("# Applying " + regUpdates.size() + " register updates:");
         }
         for (RegUpdate upd : regUpdates) {
+//            System.out.println("Reg #" + upd.index + " set=" + upd.flags_set + " clr=" + upd.flags_clear);
+//            System.err.flush();
+            
             if (CpuSimulator.printRegWrite) {
                 sb = new StringBuilder();
                 sb.append("   ").append(prefix).append(upd.index).append(':');
             }
 
+            int old_flags = flags[upd.index];
             flags[upd.index] |= upd.flags_set;
             flags[upd.index] &= ~upd.flags_clear;
             
@@ -193,11 +221,25 @@ public class RegisterFile implements IRegFile {
                         sb.append(" FREE");
                     }
                 }
-                if (((upd.flags_set | upd.flags_clear) & SET_RENAMED) != 0) {
-                    if ((flags[upd.index] & FLAG_RENAMED) != 0) {
-                        sb.append(" RENAMED");
+                if (((upd.flags_set | upd.flags_clear) & SET_UNMAPPED) != 0) {
+                    if ((flags[upd.index] & FLAG_UNMAPPED) != 0) {
+                        sb.append(" UNMAPPED");
                     } else {
-                        sb.append(" UNRENAMED");
+                        sb.append(" MAPPED");
+                    }
+                }
+                if (((upd.flags_set | upd.flags_clear) & SET_RETIRED) != 0) {
+                    if ((flags[upd.index] & FLAG_RETIRED) != 0) {
+                        sb.append(" RETIRED");
+                    } else {
+                        sb.append(" UNRETIRED");
+                    }
+                }
+                if (((upd.flags_set | upd.flags_clear) & SET_FAULT) != 0) {
+                    if ((flags[upd.index] & FLAG_FAULT) != 0) {
+                        sb.append(" FAULT");
+                    } else {
+                        sb.append(" NOFAULT");
                     }
                 }
            }

@@ -21,6 +21,14 @@ public class InstructionBase {
     private String instruction_string = "NULL";
     private int line_num = -1;
     private String preceding_label = null;
+    private int rob_index = -1;
+    
+    public enum EnumFault { NONE, BRANCH };
+    EnumFault fault = EnumFault.NONE;
+    
+    public enum EnumBranch { NULL, TAKEN, NOT_TAKEN; }
+    private EnumBranch branch_prediction = EnumBranch.NULL;
+    private EnumBranch branch_resolution = EnumBranch.NULL;
     
     public void setInstructionString(String str) { instruction_string = str; }
     public String getInstructionString() { return instruction_string; }
@@ -102,6 +110,9 @@ public class InstructionBase {
         ins.pc_address          = this.pc_address;
         ins.line_num            = this.line_num;
         ins.opcode              = this.opcode;
+        ins.rob_index           = this.rob_index;
+        ins.branch_prediction   = this.branch_prediction;
+        ins.branch_resolution   = this.branch_resolution;
         ins.src1                = this.src1.duplicate();
         ins.src2                = this.src2.duplicate();
         ins.oper0               = this.oper0.duplicate();
@@ -120,8 +131,11 @@ public class InstructionBase {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         
+        if (rob_index >= 0) {
+            sb.append(String.format("R%04d: ", rob_index));
+        } else
         if (pc_address >= 0) {
-            sb.append(String.format("%04d: ", pc_address));
+            sb.append(String.format("A%04d: ", pc_address));
         } else {
             sb.append("----: ");
         }
@@ -167,6 +181,46 @@ public class InstructionBase {
             }
         }
         
+        switch (branch_prediction) {
+            case NULL:
+                break;
+            case TAKEN:
+                sb.append(" pT");
+                break;
+            case NOT_TAKEN:
+                sb.append(" pNT");
+                break;
+        }
+
+        switch (branch_resolution) {
+            case NULL:
+                break;
+            case TAKEN:
+                sb.append(" rT");
+                break;
+            case NOT_TAKEN:
+                sb.append(" rNT");
+                break;
+        }
+        
+        switch (fault) {
+            case NONE:
+                break;
+            case BRANCH:
+                sb.append(" fault=" + fault);
+                break;
+        }
+        
         return sb.toString();
     }
+
+    public void setReorderBufferIndex(int ix) { rob_index = ix; }
+    public int getReorderBufferIndex() { return rob_index; }
+    
+    public void setBranchPrediction(EnumBranch p) { branch_prediction = p; }
+    public EnumBranch getBranchPrediction() { return branch_prediction; }
+    public void setBranchResolution(EnumBranch p) { branch_resolution = p; }
+    public EnumBranch getBranchResolution() { return branch_resolution; }
+    public void setFault(EnumFault f) { fault = f; }
+    public EnumFault getFault() { return fault; }
 }

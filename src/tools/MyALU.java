@@ -20,7 +20,6 @@ public class MyALU {
         int result = 0;
         
         switch (opcode) {
-            case CALL:
             case ADD:
                 result = input1 + input2;
                 break;

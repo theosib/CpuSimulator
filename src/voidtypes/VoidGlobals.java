@@ -43,4 +43,9 @@ public class VoidGlobals extends VoidProperties implements IGlobals {
     public IRegFile getPropertyRegisterFile(String name) {
         return VoidRegFile.getVoidRegFile();
     }
+
+    @Override
+    public InstructionBase[] getPropertyInstructionArr(String name) {
+        return new InstructionBase[0];
+    }
 }

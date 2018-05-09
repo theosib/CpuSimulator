@@ -27,6 +27,14 @@ public abstract class ComponentBase implements IComponent {
     public String getLocalName() { return name; }
     public String getName() { return getLocalName(); }
     
+    /**
+     * See getShortName().  This just returns all the capital letters from
+     * a string.
+     * 
+     * @param str
+     * @param prefix
+     * @return
+     */
     public static String computeOnlyCaps(String str, String prefix) {
         StringBuilder sb = new StringBuilder();
         for (int i=0; i<str.length(); i++) {
@@ -44,6 +52,12 @@ public abstract class ComponentBase implements IComponent {
         return prefix + abbr;
     }
     
+    /**
+     * Just an automatic way to computed abbreviations of the names of
+     * pipeline stages, pipeline registers, etc.
+     * 
+     * @return 
+     */
     public String getShortName() {
         String name = getLocalName();
         if (this instanceof IPipeReg) {

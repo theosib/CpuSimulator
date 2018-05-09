@@ -290,9 +290,32 @@ public interface IModule extends IComponent {
      */
     void addForwardingTarget(String name);
     
+    /**
+     * Create an alternate name for a pipeline stage.  This is useful for
+     * making a pipeline stage further down in a module hierarchy appear
+     * as though it is also higher up in the hierarchy.  This is primarily
+     * used so that names that begin with "in" can be automatically identified
+     * as FunctionalUnit input stages.
+     * 
+     * @param real_name
+     * @param alias_name
+     */
     public void addStageAlias(String real_name, String alias_name);
 
+    /**
+     * This similarly creates an alternate name for a pipeline register, mostly
+     * to help with automatically detecting the output pipeline register of
+     * FunctionalUnit.
+     * 
+     * @param real_name
+     * @param alias_name 
+     */
     public void addRegAlias(String real_name, String alias_name);
     
+    /**
+     * Modules have property containers.  Of any of the properties are queued
+     * to take effect for the next clock cycle, you need to implement the
+     * module's clockProperties to call 
+     */
     void clockProperties();
 }

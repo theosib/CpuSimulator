@@ -192,6 +192,8 @@ public class Operand {
     }
     
     public void rename(int phys_reg_num) {
+        if (phys_reg_num < 0) return;
+        
         if (is_renamed) {
             throw new RuntimeException("Register R" + orig_register_num + "/P" + register_num + " already renamed");
         }
@@ -217,6 +219,10 @@ public class Operand {
         } else {
             return "R" + rn;
         }
+    }
+    
+    public int getOrigRegisterNumber() {
+        return orig_register_num;
     }
     
     protected int orig_register_num;

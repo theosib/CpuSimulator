@@ -16,6 +16,21 @@ import java.util.List;
  */
 public interface IPipeStage extends IComponent {
     /**
+     * Normally, if a pipeline stage has 0 or 1 inputs and 0 or 1 outputs,
+     * then the evaluate() method will expect to use the two-argument
+     * compute method (compute(Latch input, Latch output)).  When using the
+     * two-argument method, consuming of input and writing of output is 
+     * automatic.
+     * 
+     * There are cases where this default behavior is undesirable.  To force
+     * the use of the zero-argument compute() method, you can call this
+     * disableTwoInputCompute() method from the constructor for a particular
+     * pipeline stage.  This also requires that inputs and outputs be
+     * explicitly retrieved and explicitly consumed and written.
+     */
+    public void disableTwoInputCompute();
+    
+    /**
      * Clear the list of pipeline stage status keywords.  This is called
      * by evaluate at the beginning of the clock cycle.
      */
@@ -332,5 +347,9 @@ public interface IPipeStage extends IComponent {
      */
     public String[] connectionsToStringArr();    
     
+    /**
+     * If this implementation of IPipeStage is actually an alias, return
+     * a reference to the original.
+    */
     default public IPipeStage getOriginal() { return this; }
 }

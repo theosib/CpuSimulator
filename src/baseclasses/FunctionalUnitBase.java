@@ -51,7 +51,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
             }
         }
         
-        
         return stages;
     }
     
@@ -85,7 +84,6 @@ public abstract class FunctionalUnitBase extends ModuleBase implements IFunction
             }
         }
 
-        
         return regs;
     }
     

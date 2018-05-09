@@ -15,18 +15,24 @@ public interface IRegFile {
     public static final int FLAG_INVALID = 1;
     public static final int FLAG_FLOAT = 2;
     public static final int FLAG_USED = 4;
-    public static final int FLAG_RENAMED = 8;
+    public static final int FLAG_UNMAPPED = 8;
+    public static final int FLAG_RETIRED = 16;
+    public static final int FLAG_FAULT = 32;
     
     public static final int SET_VALUE = 128;
     public static final int SET_INVALID = 1;
     public static final int SET_FLOAT = 2;
     public static final int SET_USED = 4;
-    public static final int SET_RENAMED = 8;
+    public static final int SET_UNMAPPED = 8;
+    public static final int SET_RETIRED = 16;
+    public static final int SET_FAULT = 32;
 
     public static final int CLEAR_INVALID = 1;
     public static final int CLEAR_FLOAT = 2;
     public static final int CLEAR_USED = 4;
-    public static final int CLEAR_RENAMED = 8;
+    public static final int CLEAR_UNMAPPED = 8;
+    public static final int CLEAR_RETIRED = 16;
+    public static final int CLEAR_FAULT = 32;
     
     
     void markPhysical();
@@ -49,15 +55,23 @@ public interface IRegFile {
     default public void markValid(int index) { setInvalid(index, false); }
     default public void markInvalid(int index) { setInvalid(index, true); }
     public void markFloat(int index, boolean is_float);
+    public void markFault(int index, boolean has_fault);
     
     public boolean isUsed(int index);
     public boolean isRenamed(int index);
+    default public boolean isUnmapped(int index) { return isRenamed(index); }
+    public boolean isRetired(int index);
+    public boolean hasFault(int index);
     public int getFlags(int index);
     
     public void markUsed(int index, boolean is_used);
     public void markRenamed(int index, boolean is_renamed);
+    default public void markUnmapped(int index, boolean is_unmapped) {
+        markRenamed(index, is_unmapped);
+    }
     public void changeFlags(int index, int flags_to_set, int flags_to_clear);
-    
+    public void markNewlyAllocated(int index);
+    public void markRetired(int index, boolean is_retired);
     
     public int numRegisters();
     

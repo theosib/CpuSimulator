@@ -86,4 +86,19 @@ public class VoidRegFile implements IRegFile {
 
     @Override
     public boolean isPhysical() { return false; }
+
+    @Override
+    public void markFault(int index, boolean has_fault) { }
+
+    @Override
+    public boolean isRetired(int index) { return false; }
+
+    @Override
+    public boolean hasFault(int index) { return false; }
+
+    @Override
+    public void markRetired(int index, boolean is_retired) { }
+
+    @Override
+    public void markNewlyAllocated(int index) { }
 }

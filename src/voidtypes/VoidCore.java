@@ -93,5 +93,10 @@ public class VoidCore extends VoidModule implements ICpuCore {
 
     @Override
     public int numDispatched() { return 0; }
-    
+
+    @Override
+    public void putRetiredSet(Set<Integer> ret_ixs) { }
+
+    @Override
+    public Set<Integer> getRetiredSet() { return null; }
 }

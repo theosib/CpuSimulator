@@ -235,8 +235,9 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
         Map<String,IPipeStage> recursiveStages = new HashMap<>();
         
         // Add all local stages
-        for (Map.Entry<String,IPipeStage> entry : getLocalPipeStages().entrySet()) {
-            recursiveStages.put(entry.getKey(), entry.getValue());
+        for (IPipeStage entry : getLocalPipeStages().values()) {
+            IPipeStage entry2 = entry.getOriginal();
+            recursiveStages.put(entry2.getHierarchicalName(), entry2);
         }
         
         // Iterate child modules
@@ -244,13 +245,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
             IModule childUnit = child.getValue();
             Map<String,IPipeStage> childStages = childUnit.getPipeStagesRecursive();
             
-            // Iterate child stages, prepending name of child module to
-            // pipeline stage names.
-            String prefix = child.getKey() + '.';
-            for (Map.Entry<String,IPipeStage> entry : childStages.entrySet()) {
-                String name = prefix + entry.getKey();
-                recursiveStages.put(name, entry.getValue());
-            }
+            recursiveStages.putAll(childStages);
         }
         
         return recursiveStages;
