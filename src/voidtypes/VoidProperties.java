@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import utilitytypes.ClockedIntArray;
 import utilitytypes.IProperties;
 
 /**
@@ -95,13 +96,18 @@ public class VoidProperties implements IProperties {
     @Override
     public List<String> toStringList() { return strlist; }
 
-    @Override
-    public void setClockedProperty(String name, Object val) {}
+//    @Override
+//    public void setClockedProperty(String name, Object val) {}
+//
+//    @Override
+//    public void advanceClock() {}
+//
+//    @Override
+//    public void deleteClockedProperty(String name) {}
 
     @Override
-    public void advanceClock() {}
-
-    @Override
-    public void deleteClockedProperty(String name) {}
+    public ClockedIntArray getPropertyClockedIntArray(String name) {
+        return null;
+    }
     
 }

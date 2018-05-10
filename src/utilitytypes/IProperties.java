@@ -60,17 +60,15 @@ public interface IProperties {
     public int numProperties();
     public boolean hasProperty(String name);
     public void setProperty(String name, Object val);
-    public void setClockedProperty(String name, Object val);
     public void deleteProperty(String name);
-    public void deleteClockedProperty(String name);
     public Integer getPropertyInteger(String name);
     public int[] getPropertyIntArray(String name);
     public Boolean getPropertyBoolean(String name);
     public boolean[] getPropertyBooleanArray(String name);
     public String getPropertyString(String name);
     public Object getPropertyObject(Object name);
+    public ClockedIntArray getPropertyClockedIntArray(String name);
     public void clear();
-    public void advanceClock();
 
     public void copyPropertiesFrom(IProperties source, Set<String> propertiesToCopy);
     public void copyAllPropertiesFrom(IProperties source);

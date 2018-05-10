@@ -99,4 +99,7 @@ public class VoidCore extends VoidModule implements ICpuCore {
 
     @Override
     public Set<Integer> getRetiredSet() { return null; }
+
+    @Override
+    public void initClocking() { }
 }

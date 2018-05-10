@@ -13,8 +13,8 @@ import java.util.Set;
  * 
  * @author millerti
  */
-public interface ICpuCore extends IModule {
-    public void advanceClock();    
+public interface ICpuCore extends IModule, IClocked {
+//    public void advanceClock();    
     public void incIssued();
     public void incCompleted();
     public void incDispatched();

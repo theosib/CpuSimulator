@@ -5,12 +5,14 @@
  */
 package implementation;
 
+import baseclasses.ClockedPropertiesContainer;
 import baseclasses.InstructionBase;
 import baseclasses.PropertiesContainer;
 import java.util.Map;
 import java.util.Set;
 import utilitytypes.IGlobals;
 import tools.InstructionSequence;
+import utilitytypes.ClockedIntArray;
 import utilitytypes.IProperties;
 import utilitytypes.IRegFile;
 import utilitytypes.RegisterFile;
@@ -21,7 +23,7 @@ import utilitytypes.RegisterFile;
  * 
  * @author 
  */
-public class GlobalData extends PropertiesContainer implements IGlobals {
+public class GlobalData extends ClockedPropertiesContainer implements IGlobals {
     protected InstructionSequence program;
 
     public static int PRF_SIZE = 256;
@@ -60,7 +62,7 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
         this.setProperty(REORDER_BUFFER, rob);
         
         // RAT is just an int array, one entry per architecural register.
-        this.setProperty(REGISTER_ALIAS_TABLE, new int[ARF_SIZE]);
+        this.setProperty(REGISTER_ALIAS_TABLE, new ClockedIntArray(32));
     }
 
     /**
@@ -127,15 +129,15 @@ public class GlobalData extends PropertiesContainer implements IGlobals {
         return getPropertyRegisterFile(REGISTER_FILE);
     }
     
-    /**
-     * Updates to the register file are queued to not take effect until
-     * advancing to the next clock cycle.  Therefore, an advanceClock method
-     * has been added to the Globals and to property containers in general.
-     */
-    public void advanceClock() {
-        super.advanceClock();
-        getRegisterFile().advanceClock();
-        getPropertyRegisterFile(ARCH_REG_FILE).advanceClock();
-    }
+//    /**
+//     * Updates to the register file are queued to not take effect until
+//     * advancing to the next clock cycle.  Therefore, an advanceClock method
+//     * has been added to the Globals and to property containers in general.
+//     */
+//    public void advanceClock() {
+//        super.advanceClock();
+//        getRegisterFile().advanceClock();
+//        getPropertyRegisterFile(ARCH_REG_FILE).advanceClock();
+//    }
 
 }

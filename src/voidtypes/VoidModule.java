@@ -151,9 +151,6 @@ public class VoidModule extends VoidComponent implements IModule {
     }    
 
     @Override
-    public void clockProperties() {}
-
-    @Override
     public void connect(String stage1, String reg, String stage2) {}
 
     @Override

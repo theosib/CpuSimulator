@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import utilitytypes.ClockedIntArray;
+import utilitytypes.IClocked;
 import utilitytypes.IProperties;
 import utilitytypes.Logger;
 
@@ -24,7 +26,6 @@ import utilitytypes.Logger;
  */
 public class PropertiesContainer implements IProperties {
     protected Map<String,Object> properties;
-    protected Map<String,Object> clocked_properties;
     
     /**
      * For diagnostic purposes
@@ -46,7 +47,6 @@ public class PropertiesContainer implements IProperties {
     @Override
     public void clear() {
         if (properties != null) properties.clear();
-        if (clocked_properties != null) clocked_properties.clear();
     }
 
     protected void alloc() {
@@ -55,12 +55,6 @@ public class PropertiesContainer implements IProperties {
         }
     }
     
-    protected void alloc_clocked() {
-        if (clocked_properties == null) {
-            clocked_properties = new HashMap<>();
-        }
-    }
-
     
     /**
      * @return Set of property names
@@ -101,19 +95,6 @@ public class PropertiesContainer implements IProperties {
         properties.put(name, val);
     }
 
-    /**
-     * Post a property change to not take effect until advanceClock is called
-     * on the properties container.
-     * 
-     * @param name
-     * @param val
-     */
-    @Override
-    public void setClockedProperty(String name, Object val) {
-        alloc_clocked();
-        clocked_properties.put(name, val);
-    }
-    
     
     @Override
     public void deleteProperty(String name) {
@@ -121,18 +102,6 @@ public class PropertiesContainer implements IProperties {
         properties.remove(name);
     }
     
-    /**
-     * Queue a property to be deleted when advanceClock is called.  A better
-     * name for this might be "deletePropertyClocked".
-     * 
-     * @param name 
-     */
-    @Override
-    public void deleteClockedProperty(String name) {
-        alloc_clocked();
-        clocked_properties.put(name, DELETE);
-    }
-
     
     /**
      * Fetches the specified property by name, returning it as an Integer.
@@ -304,30 +273,20 @@ public class PropertiesContainer implements IProperties {
         return properties.size();
     }
 
-    /**
-     * Apply all queued property changes.
-     */
     @Override
-    public void advanceClock() {
-        if (clocked_properties == null) return;
-        alloc();
-        for (Map.Entry<String,Object> ent : clocked_properties.entrySet()) {
-            Object value = ent.getValue();
-            if (CpuSimulator.printPropertyUpdates) {
-                if (value == null) {
-                    Logger.out.println("# " + ent.getKey() + " <- null");
-                } else if (value == DELETE) {
-                    Logger.out.println("# " + ent.getKey() + " deleted");
-                } else {
-                    Logger.out.println("# " + ent.getKey() + " <- " + ent.getValue());
-                }
-            }
-            if (value == DELETE) {
-                properties.remove(ent.getKey());
-            } else {
-                properties.put(ent.getKey(), value);
-            }
+    public ClockedIntArray getPropertyClockedIntArray(String name) {
+        if (properties == null) return null;
+        
+        Object p = properties.get(name);
+        if (p == null) return null;
+        
+        if (p instanceof ClockedIntArray) {
+            return (ClockedIntArray)p;
+        } else {
+            throw new java.lang.ClassCastException("Property " + name + 
+                    " cannot be converted from " +
+                    p.getClass().getName() + " to ClockedIntArray.");
         }
-        clocked_properties.clear();
     }
+
 }

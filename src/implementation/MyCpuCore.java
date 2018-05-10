@@ -9,10 +9,14 @@ import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import baseclasses.CpuCore;
 import examples.MultiStageFunctionalUnit;
+import java.util.Set;
 import tools.InstructionSequence;
+import utilitytypes.ClockedIntArray;
+import utilitytypes.IClocked;
 import utilitytypes.IGlobals;
 import utilitytypes.IPipeReg;
 import utilitytypes.IPipeStage;
+import utilitytypes.IProperties;
 import static utilitytypes.IProperties.*;
 import utilitytypes.IRegFile;
 import utilitytypes.Logger;
@@ -27,7 +31,12 @@ import voidtypes.VoidRegister;
 public class MyCpuCore extends CpuCore {
     static final String[] producer_props = {RESULT_VALUE};
         
+    /**
+     * Method that initializes the CpuCore.
+     */
+    @Override
     public void initProperties() {
+        // Instantiate the CPU core's property container that we call "Globals".
         properties = new GlobalData();
     }
     
@@ -36,10 +45,11 @@ public class MyCpuCore extends CpuCore {
     }
     
     public void runProgram() {
-        properties.setProperty("running", true);
-        while (properties.getPropertyBoolean("running")) {
+        properties.setProperty(IProperties.CPU_RUN_STATE, IProperties.RUN_STATE_RUNNING);
+        while (properties.getPropertyInteger(IProperties.CPU_RUN_STATE) != IProperties.RUN_STATE_HALTED) {
             Logger.out.println("## Cycle number: " + cycle_number);
-            advanceClock();
+            Logger.out.println("# State: " + getGlobals().getPropertyInteger(IProperties.CPU_RUN_STATE));
+            IClocked.advanceClockAll();
         }
     }
 

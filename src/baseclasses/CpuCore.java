@@ -18,6 +18,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import utilitytypes.IClocked;
+import static utilitytypes.IClocked.addClocked;
 import utilitytypes.IFunctionalUnit;
 import utilitytypes.IModule;
 import utilitytypes.IPipeReg;
@@ -41,8 +43,11 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
     public int instructions_completed = 0;
     public int instructions_dispatched = 0;
     
+    
+    
     public CpuCore(IModule parent, String name) {
         super(parent, name);
+        initClocking();
     }
     
     @Override
@@ -300,7 +305,7 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         // for the next clock cycle.  Without this, we get erroneous 
         // communication between stages in the same cycle, which causes
         // unexpected behaviors.
-        clockProperties();
+//        clockProperties();
         
         // For now, this just causes the logger to print out a blank line,
         // but ONLY if other lines have been printed.
@@ -442,5 +447,10 @@ public abstract class CpuCore extends ModuleBase implements ICpuCore {
         computeFlattenedPipeRegMap();
         stageTopologicalSort(getFirstStage());
     }    
+
+    @Override
+    public void initClocking() {
+        addClocked(this);
+    }
 }
 

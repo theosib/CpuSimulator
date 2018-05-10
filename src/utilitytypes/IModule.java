@@ -317,5 +317,5 @@ public interface IModule extends IComponent {
      * to take effect for the next clock cycle, you need to implement the
      * module's clockProperties to call 
      */
-    void clockProperties();
+//    void clockProperties();
 }

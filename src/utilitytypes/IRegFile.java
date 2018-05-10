@@ -9,7 +9,7 @@ package utilitytypes;
  *
  * @author millerti
  */
-public interface IRegFile {
+public interface IRegFile extends IClocked {
 
     // Per-register status flags
     public static final int FLAG_INVALID = 1;
@@ -150,5 +150,5 @@ public interface IRegFile {
     /**
      * Apply all of the 'set value' operations queued up.
      */
-    public void advanceClock();
+//    public void advanceClock();
 }

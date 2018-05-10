@@ -48,4 +48,16 @@ public class VoidGlobals extends VoidProperties implements IGlobals {
     public InstructionBase[] getPropertyInstructionArr(String name) {
         return new InstructionBase[0];
     }
+
+    @Override
+    public void initClocking() { }
+
+    @Override
+    public void setClockedProperty(String name, Object val) {}
+
+    @Override
+    public void deleteClockedProperty(String name) {}
+
+    @Override
+    public void advanceClock() {}
 }

@@ -7,6 +7,8 @@ package baseclasses;
 
 import java.util.HashMap;
 import java.util.Map;
+import utilitytypes.IClocked;
+import static utilitytypes.IClocked.addClocked;
 import utilitytypes.IFunctionalUnit;
 import utilitytypes.IGlobals;
 import utilitytypes.IModule;
@@ -99,7 +101,7 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     
     @Override
     public IProperties getProperties() {
-        if (properties == null) properties = new PropertiesContainer();
+        if (properties == null) properties = new ClockedPropertiesContainer();
         return properties;
     }
 
@@ -468,15 +470,15 @@ public abstract class ModuleBase extends ComponentBase implements IModule {
     }
     
     
-    @Override
-    public void clockProperties() {
-        if (properties != null) {
-            properties.advanceClock();
-        }
-        Map<String, IFunctionalUnit> children = getLocalChildUnits();
-        if (children == null) return;
-        for (IFunctionalUnit unit : children.values()) {
-            unit.clockProperties();
-        }
-    }
+//    @Override
+//    public void clockProperties() {
+//        if (properties != null) {
+//            properties.advanceClock();
+//        }
+//        Map<String, IFunctionalUnit> children = getLocalChildUnits();
+//        if (children == null) return;
+//        for (IFunctionalUnit unit : children.values()) {
+//            unit.clockProperties();
+//        }
+//    }
 }

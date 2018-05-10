@@ -101,4 +101,7 @@ public class VoidRegFile implements IRegFile {
 
     @Override
     public void markNewlyAllocated(int index) { }
+
+    @Override
+    public void initClocking() { }
 }

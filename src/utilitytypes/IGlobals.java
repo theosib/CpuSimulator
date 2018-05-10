@@ -14,7 +14,7 @@ import tools.InstructionSequence;
  * 
  * @author millerti
  */
-public interface IGlobals extends IProperties {
+public interface IGlobals extends IClockedProperties {
 
     /**
      * Restore this properties container to initial conditions
@@ -32,7 +32,7 @@ public interface IGlobals extends IProperties {
     public InstructionBase getInstructionAt(int pc_address);
     public void loadProgram(InstructionSequence seq);
     public IRegFile getRegisterFile();
-    public void advanceClock();
+//    public void advanceClock();
     public IRegFile getPropertyRegisterFile(String name);
     public InstructionBase[] getPropertyInstructionArr(String name);
 }

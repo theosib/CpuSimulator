@@ -8,6 +8,7 @@ package utilitytypes;
 import cpusimulator.CpuSimulator;
 import java.util.ArrayList;
 import java.util.List;
+import static utilitytypes.IClocked.addClocked;
 
 /**
  *
@@ -35,6 +36,11 @@ public class RegisterFile implements IRegFile {
         flags[index] = flagsIn;
     }
 
+    @Override
+    public void initClocking() {
+        addClocked(this);
+    }
+
 
 
     protected class RegUpdate {
@@ -56,6 +62,7 @@ public class RegisterFile implements IRegFile {
     
     
     public RegisterFile(int num_registers) {
+        initClocking();
         values = new int[num_registers];
         flags = new int[num_registers];
     }
