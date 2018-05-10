@@ -38,6 +38,9 @@ public class MyCpuCore extends CpuCore {
     public void initProperties() {
         // Instantiate the CPU core's property container that we call "Globals".
         properties = new GlobalData();
+
+// Set all RAT entries to -1, mapping architectural register numbers to the ARF.
+// Set all ARF entries as USED and VALID
     }
     
     public void loadProgram(InstructionSequence program) {
